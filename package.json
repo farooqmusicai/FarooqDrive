@@ -15,7 +15,7 @@
     "build:desktop": "esbuild apps/desktop/src/main.ts --bundle --platform=node --format=cjs --target=node22 --external:electron --packages=external --outfile=dist/desktop/main.cjs",
     "build": "npm run build:web && npm run build:desktop",
     "start": "electron .",
-    "dist:win": "npm run build && electron-builder --win nsis portable --x64",
+    "dist:win": "npm run build && electron-builder --win nsis portable --x64 --publish never",
     "test:syntax": "tsc -p apps/web/tsconfig.json --noEmit"
   },
   "dependencies": {
