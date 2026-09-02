@@ -1,14 +1,12 @@
 {
   "name": "farooqdrive",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "A multi-account Google Drive desktop dashboard for Windows.",
   "private": false,
   "license": "MIT",
   "author": "Mohammad Farooq",
   "main": "dist/desktop/main.cjs",
-  "workspaces": [
-    "apps/web"
-  ],
+  "workspaces": ["apps/web"],
   "scripts": {
     "dev:web": "npm run dev -w @farooqdrive/web",
     "build:web": "npm run build -w @farooqdrive/web",
@@ -39,52 +37,15 @@
     "appId": "com.farooqdrive.desktop",
     "productName": "FarooqDrive",
     "asar": true,
-    "files": [
-      "dist/desktop/**/*",
-      "package.json"
-    ],
+    "files": ["dist/desktop/**/*", "package.json"],
     "extraResources": [
-      {
-        "from": "apps/web/dist",
-        "to": "web"
-      },
-      {
-        "from": "build",
-        "to": "build",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "apps/api/migrations",
-        "to": "migrations",
-        "filter": [
-          "**/*.sql"
-        ]
-      }
+      {"from":"apps/web/dist","to":"web"},
+      {"from":"build","to":"build","filter":["**/*"]},
+      {"from":"apps/api/migrations","to":"migrations","filter":["**/*.sql"]}
     ],
-    "directories": {
-      "output": "release",
-      "buildResources": "build"
-    },
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "icon": "build/FarooqDrive.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "FarooqDrive",
-      "deleteAppDataOnUninstall": false,
-      "artifactName": "FarooqDrive-Setup-${version}-${arch}.${ext}"
-    },
-    "portable": {
-      "artifactName": "FarooqDrive-Portable-${version}-${arch}.${ext}"
-    }
+    "directories": {"output":"release","buildResources":"build"},
+    "win": {"target":["nsis","portable"],"icon":"build/FarooqDrive.ico"},
+    "nsis": {"oneClick":false,"allowToChangeInstallationDirectory":true,"createDesktopShortcut":true,"createStartMenuShortcut":true,"shortcutName":"FarooqDrive","deleteAppDataOnUninstall":false,"artifactName":"FarooqDrive-Setup-${version}-${arch}.${ext}"},
+    "portable": {"artifactName":"FarooqDrive-Portable-${version}-${arch}.${ext}"}
   }
 }

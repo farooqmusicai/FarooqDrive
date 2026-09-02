@@ -6,7 +6,6 @@ import { getGoogleOAuthConfig } from './oauth-config.js';
 
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 export const OIDC_SCOPES = ['openid','email','profile'];
-
 export function newOAuthClient(redirectUri?: string) {
   const {clientId,clientSecret}=getGoogleOAuthConfig();
   return new OAuth2Client(clientId,clientSecret,redirectUri);
@@ -18,7 +17,7 @@ export async function driveOAuthClient(accountId:string,userId:string){
 }
 export async function accessTokenForDrive(accountId:string,userId:string){const c=await driveOAuthClient(accountId,userId);const t=await c.getAccessToken();if(!t.token)throw new Error('Could not obtain Google access token');return t.token;}
 async function googleJson(url:string,accessToken:string,init?:RequestInit){const res=await fetch(url,{...init,headers:{...(init?.headers||{}),Authorization:`Bearer ${accessToken}`}});if(!res.ok)throw new Error(`Google API ${res.status}: ${await res.text()}`);return res.json() as Promise<any>;}
-export async function getDriveAbout(accountId:string,userId:string){const token=await accessTokenForDrive(accountId,userId);return googleJson('https://www.googleapis.com/drive/v3/about?fields=user(id,displayName,emailAddress,photoLink),storageQuota(limit,usage,usageInDrive,usageInDriveTrash),maxUploadSize',token);}
+export async function getDriveAbout(accountId:string,userId:string){const token=await accessTokenForDrive(accountId,userId);return googleJson('https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress,photoLink,permissionId),storageQuota(limit,usage,usageInDrive,usageInDriveTrash),maxUploadSize',token);}
 export async function ensureRootFolder(accountId:string,userId:string){
   const row=get<any>('SELECT root_folder_id FROM drive_accounts WHERE id=? AND user_id=?',[accountId,userId]);if(!row)throw new Error('Drive account not found');if(row.root_folder_id)return row.root_folder_id;
   const token=await accessTokenForDrive(accountId,userId);const q=encodeURIComponent("name='Farooqdrive' and mimeType='application/vnd.google-apps.folder' and trashed=false");
