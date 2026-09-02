@@ -1,24 +1,25 @@
-# Release Status - 0.9.3 Release Candidate Source
+# Release Status - 0.9.4 Release Candidate Source
 
-FarooqDrive 0.9.3 is a credential-free, standalone Windows release candidate source tree. It is **not yet a signed final public production binary**.
+FarooqDrive 0.9.4 restores the original unified multi-Google-Drive product model and changes Google authorization to the full `drive` scope required for that model's manual sync and complete managed-file operations.
 
 ## Completed
-- Windows standalone architecture with embedded SQLite; no Docker/MySQL required for end users.
-- Official FarooqDrive database-and-folders branding and Windows/Store icon assets.
-- Credential-free GitHub and Windows build architecture.
-- First-run Google OAuth setup wizard.
-- Each installation stores its own Google Desktop OAuth Client ID and Client Secret in encrypted local application storage.
-- OAuth Settings page for later credential management.
-- `drive.file` is the intended minimal Google Drive scope.
-- GitHub Actions builds no longer require publisher Google OAuth credentials.
-- Setup EXE and Portable EXE have distinct artifact names.
+- Multiple Google Drive accounts represented in one virtual dashboard.
+- Aggregate quota and smart upload-account selection.
+- Per-account `Farooqdrive` root folders.
+- Virtual folders and per-file account mapping.
+- Manual sync from connected `Farooqdrive` folders.
+- Preview/download/rename/move/delete plumbing for managed files.
+- Credential-free BYOC Windows/GitHub architecture.
+- Full Google Drive OAuth scope for unified sync/file-manager behavior.
+- Official FarooqDrive branding.
+- Windows build fixes: Vite client types and `--publish never` for CI artifact builds.
 
-## Still required before final 1.0 public release
-1. Build the actual Windows EXE on a Windows runner and perform Windows 11 clean-machine tests.
-2. Final review/update of the live FarooqDrive privacy, terms and support pages so they exactly match the 0.9.3 implementation.
-3. Reserve the FarooqDrive app identity in Microsoft Partner Center and insert final Store identity values.
-4. Complete Microsoft Store packaging/testing.
-5. Optional trusted code signing for direct-download installers outside Microsoft Store.
+## Important Google requirement
+`https://www.googleapis.com/auth/drive` is a Google restricted scope. Each BYOC user owns the Google Cloud project they configure and is responsible for Google's applicable testing/publishing/verification requirements.
 
-## Important architecture rule
-The official public binaries contain **no publisher Google OAuth Client ID or Client Secret**. Every user creates and uses their own Google OAuth Desktop client. Existing Drive accounts must be disconnected before the OAuth client is replaced because refresh tokens belong to the client that created them.
+## Still required before final 1.0
+1. Update the test Google Cloud project's Data Access from `drive.file` to `drive`.
+2. Re-authorize the test account so the new token contains the full Drive scope.
+3. Build Windows v0.9.4 and run clean functional tests with at least two Google accounts.
+4. Review live privacy/terms pages against this full-scope design.
+5. Complete Microsoft Store identity/package testing.

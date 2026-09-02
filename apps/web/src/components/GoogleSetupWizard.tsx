@@ -28,11 +28,12 @@ export function GoogleSetupWizard({onDone}:{onDone:()=>void}){
           <li><b>Create or choose a Google Cloud project.</b> <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noreferrer">Open Google Cloud</a></li>
           <li><b>Enable Google Drive API.</b> <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noreferrer">Open Drive API</a></li>
           <li>Open <b>Google Auth Platform</b>, set the audience to <b>External</b>, and enter an app name.</li>
-          <li>In <b>Data Access</b>, add only <code>https://www.googleapis.com/auth/drive.file</code>.</li>
+          <li>In <b>Data Access</b>, add <code>https://www.googleapis.com/auth/drive</code>. FarooqDrive needs this full Drive permission to find/sync files placed manually in each account's <b>Farooqdrive</b> folder and to rename, move, download or delete managed files across connected accounts.</li>
           <li>In <b>Clients</b>, create a new OAuth Client with application type <b>Desktop app</b>.</li>
           <li>If your OAuth project remains in <b>Testing</b>, add your Google account as a Test User. For long-term daily use, Google testing-mode refresh tokens are limited; review Google's publishing options for your own project.</li>
           <li>Copy the Desktop Client ID and Client Secret into the fields below.</li>
         </ol>
+        <p className="guide-note"><b>Permission notice:</b> Google classifies full Drive access as a restricted scope. Use a Google Cloud project you control. If the project is in Testing, add every Google account you want to connect as a Test User. Google may require verification/security review for wider production use.</p>
         <p className="guide-note">Never post your Client Secret on GitHub, a forum, screenshot, or public website.</p>
       </div>}
 
@@ -46,7 +47,7 @@ export function GoogleSetupWizard({onDone}:{onDone:()=>void}){
         {error&&<p className="error">{error}</p>}
         <button className="primary" disabled={busy} type="submit">{busy?'Saving securely…':'Save and continue'}</button>
       </form>
-      <p className="fine">FarooqDrive stores these values in its local encrypted application data. They are not added to the public source code.</p>
+      <p className="fine">FarooqDrive stores these values in its local encrypted application data. They are not added to the public source code. Your Google authorization remains tied to your own Google Cloud project.</p>
     </section>
   </main>
 }

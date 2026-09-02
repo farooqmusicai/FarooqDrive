@@ -9,7 +9,7 @@
 FarooqDrive is a desktop application that lets a user connect Google Drive accounts that the user controls or is authorized to use, view combined storage information, and manage files that FarooqDrive creates or has been granted access to.
 
 ## 2. Information FarooqDrive accesses
-When you authorize Google, FarooqDrive may access your Google account identifier, email address, display name, profile image, Google Drive storage quota information, and metadata/content for files that are within the permissions granted to FarooqDrive. FarooqDrive requests the `drive.file` scope rather than unrestricted access to every file in a Google Drive account.
+When you authorize Google, FarooqDrive may access your Google account identifier, email address, display name, profile image, Google Drive storage quota information, and Drive file/folder metadata and content permitted by the Google OAuth grant. FarooqDrive requests the full `https://www.googleapis.com/auth/drive` scope so its multi-account storage layer can discover and synchronize files placed manually in each connected account's `Farooqdrive` folder and perform supported read/write operations. Google classifies this as a restricted scope.
 
 ## 3. Where information is stored
 The standard desktop edition stores application metadata locally on your Windows computer in its application data directory. OAuth refresh tokens are encrypted before local storage. File bytes are not permanently stored in FarooqDrive's local database: uploads are sent to Google Drive and downloads/previews are streamed on demand.
@@ -42,3 +42,6 @@ Website: **[ADD FAROOQDRIVE WEBSITE URL]**
 
 ## User-supplied Google OAuth credentials
 The public FarooqDrive Windows build does not include a publisher-owned Google OAuth Client ID or Client Secret. Each installation may store the user's own Google OAuth Desktop Client ID and Client Secret in encrypted local application storage. These credentials are used only to authorize that installation with Google and are not intentionally transmitted to a FarooqDrive-operated server.
+
+## Intended Drive usage boundary
+Although the Google `drive` OAuth grant is broad, FarooqDrive's product design is to use the `Farooqdrive` storage folder(s) associated with the user's connected accounts for its unified storage operations. Users should understand that the OAuth permission itself authorizes wider Drive access.

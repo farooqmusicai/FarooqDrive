@@ -11,7 +11,8 @@ Please do not open a public GitHub issue for an unpatched vulnerability. Send a 
 - The desktop OAuth callback listens on the loopback interface only.
 - OAuth refresh tokens are encrypted at rest using an application master key protected by the Windows/Electron secure-storage mechanism when available.
 - The local HTTP service binds to `127.0.0.1` only and rejects non-local connections.
-- The app requests the narrower Google Drive `drive.file` permission.
+- The app requests Google's full `drive` scope for the unified multi-account sync/file-manager feature set. Google classifies this as a restricted scope.
+- FarooqDrive's intended operational boundary is its managed `Farooqdrive` folders, even though the OAuth grant itself is broader.
 - File uploads use Google Drive resumable uploads; FarooqDrive does not intentionally persist file bytes in its local database.
 
 ## Secrets

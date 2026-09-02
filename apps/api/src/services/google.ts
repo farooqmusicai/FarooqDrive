@@ -4,7 +4,7 @@ import { all, get, run } from '../db/database.js';
 import { decryptString, encryptString } from '../utils/crypto.js';
 import { getGoogleOAuthConfig } from './oauth-config.js';
 
-export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 export const OIDC_SCOPES = ['openid','email','profile'];
 
 export function newOAuthClient(redirectUri?: string) {

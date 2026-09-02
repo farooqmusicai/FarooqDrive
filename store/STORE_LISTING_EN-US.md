@@ -13,7 +13,7 @@ FarooqDrive keeps file bytes in Google Drive. Each connected account uses a fold
 
 Key capabilities include combined storage totals, per-account quota information, resumable uploads with progress, virtual folders, file preview and download, rename, virtual move, Google Drive trash, account disconnect, and manual metadata sync.
 
-Google authorization opens in your normal browser. FarooqDrive does not ask for your Google password and uses the narrower `drive.file` permission for files the app creates or that you authorize for the app.
+Google authorization opens in your normal browser. FarooqDrive never asks for your Google password. To provide unified multi-account sync and file management, it requests Google Drive full-access authorization from the Google Cloud OAuth project configured by the user. FarooqDrive is designed to organize its storage inside a `Farooqdrive` folder in each connected account.
 
 ## Features
 - Connect multiple Google Drive accounts

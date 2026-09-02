@@ -38,7 +38,7 @@ npm run dist:win
 ```
 
 ## Google OAuth
-FarooqDrive uses the OAuth 2.0 installed/desktop application flow with a loopback redirect and requests `openid`, `email`, `profile` and `https://www.googleapis.com/auth/drive.file`.
+FarooqDrive uses the OAuth 2.0 installed/desktop application flow with a loopback redirect and requests `openid`, `email`, `profile` and `https://www.googleapis.com/auth/drive`. Full Drive access is required by FarooqDrive's unified multi-account model so it can discover/sync files placed manually in each account's `Farooqdrive` root folder and perform supported read/write file operations.
 
 ## Public repository safety
 Never commit personal OAuth credentials, signing certificates, private keys, access tokens, refresh tokens or Microsoft Partner Center secrets.
@@ -52,6 +52,12 @@ See `PRIVACY.md` and `SECURITY.md`.
 
 ## Windows build without local developer tools
 See `docs/BUILD_WINDOWS_WITH_GITHUB_URDU.md`. The GitHub workflow builds the Setup and Portable EXE on a Windows runner. Google OAuth Repository Secrets are not needed.
+
+## Unified multi-drive model
+
+FarooqDrive is designed to present multiple connected Google Drive accounts as one virtual storage dashboard. Each connected account has its own `Farooqdrive` root folder; combined quota is shown as one total, uploads are routed to an account with enough free space, virtual folders are maintained by FarooqDrive, and manual sync reads each connected account's `Farooqdrive` folder back into the local database.
+
+The full `drive` scope is a Google **restricted scope**. Users of the credential-free/BYOC edition are responsible for the Google Cloud project they configure and any verification requirements that apply to that project.
 
 ## Bring Your Own Google OAuth credentials
 

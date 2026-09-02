@@ -14,3 +14,6 @@ Before public release, replace this paragraph with the publisher's final legal c
 
 ## Google Cloud configuration
 Users of the credential-free public edition are responsible for creating and maintaining their own Google Cloud project and OAuth Desktop credentials, and for complying with Google's applicable terms, quotas, OAuth policies, and publishing requirements for that project.
+
+## Google Drive permission
+FarooqDrive's unified multi-account functionality uses Google's full Drive OAuth scope. This authorization can permit FarooqDrive to view, create, edit and delete files in an authorized Google Drive account. FarooqDrive's intended storage workflow centers on its `Farooqdrive` folders, but users are responsible for understanding and approving the Google consent shown for their own OAuth project.

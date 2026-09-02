@@ -20,3 +20,6 @@ Each connected Google account has a `Farooqdrive` folder. File bytes are uploade
 
 ## Virtual folders
 Virtual folders are independent from physical Google Drive folders. This lets one FarooqDrive virtual folder contain files physically stored in different Google accounts.
+
+## Google OAuth scope
+FarooqDrive requests full `https://www.googleapis.com/auth/drive` authorization so the unified storage layer can discover/sync manually-added files in each account's `Farooqdrive` folder and perform the intended file operations. The scope is broader than FarooqDrive's intended folder boundary and is classified by Google as restricted.

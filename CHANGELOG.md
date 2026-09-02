@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.4 - 2026-09-02
+- Restored the original unified multi-Google-Drive scope model.
+- Changed OAuth from `drive.file` to full `https://www.googleapis.com/auth/drive`.
+- Updated first-run Google setup instructions and disclosure for Google's restricted full-Drive permission.
+- Updated README, Privacy, Terms, Security and Store listing text to match actual permission behavior.
+- Carried forward Windows CI fixes (`vite-env.d.ts` and `--publish never`).
+
 ## 0.9.3 - 2026-09-02
 - Changed the public Windows edition to Bring Your Own Google OAuth credentials.
 - Added an automatic first-run Google Cloud/OAuth setup wizard.
