@@ -1,2 +1,0 @@
-export const API = import.meta.env.VITE_API_URL || '';
-export async function api<T=any>(path:string,init?:RequestInit):Promise<T>{const res=await fetch(`${API}${path}`,{...init,credentials:'include',headers:{'Content-Type':'application/json',...(init?.headers||{})}});if(!res.ok){const body=await res.json().catch(()=>({}));throw new Error(body.error||`Request failed: ${res.status}`)}return res.json();}
