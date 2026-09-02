@@ -1,0 +1,30 @@
+name: Prepare Microsoft Store Package
+on:
+  workflow_dispatch:
+jobs:
+  package:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - name: Build credential-free Windows application layout
+        shell: pwsh
+        run: |
+          npm run build
+          npx electron-builder --dir --win --x64
+      - name: Store packaging notice
+        shell: pwsh
+        run: |
+          Write-Host 'FarooqDrive contains no publisher Google OAuth credentials.'
+          Write-Host 'Each user configures a personal Google Desktop OAuth client on first launch.'
+          Write-Host 'Insert the Microsoft Store identity after reserving the app name in Partner Center.'
+          Write-Host 'Follow docs/WINDOWS_STORE_RELEASE.md for the final Store package.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FarooqDrive-Store-Staging
+          path: release/win-unpacked/**

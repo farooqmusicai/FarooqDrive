@@ -1,0 +1,5 @@
+{
+  "_note": "Optional developer-only example. Normal Windows users configure OAuth inside FarooqDrive on first launch.",
+  "clientId": "YOUR_DESKTOP_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+  "clientSecret": "YOUR_DESKTOP_OAUTH_CLIENT_SECRET"
+}
