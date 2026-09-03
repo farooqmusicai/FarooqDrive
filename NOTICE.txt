@@ -1,0 +1,4 @@
+FarooqDrive
+Copyright © 2026 Mohammad Farooq. All Rights Reserved.
+
+This is an independently written application. No third-party project source code is included in this repository.
