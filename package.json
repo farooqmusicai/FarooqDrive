@@ -1,6 +1,39 @@
 {
-  "name":"farooqdrive","version":"1.0.0","description":"Unified storage across multiple Google Drive accounts","main":"src/main.js","author":"Mohammad Farooq","private":true,
-  "scripts":{"start":"electron .","dist:win":"electron-builder --win nsis portable --x64 --publish never"},
-  "devDependencies":{"electron":"^38.0.0","electron-builder":"^26.0.12"},
-  "build":{"appId":"com.farooqdrive.desktop","productName":"FarooqDrive","asar":true,"files":["src/**/*","package.json","NOTICE.txt"],"directories":{"buildResources":"build","output":"dist"},"win":{"target":[{"target":"nsis","arch":["x64"]},{"target":"portable","arch":["x64"]}],"icon":"build/icon.ico"},"nsis":{"oneClick":false,"allowToChangeInstallationDirectory":true,"createDesktopShortcut":true,"createStartMenuShortcut":true,"shortcutName":"FarooqDrive"}}
+  "name": "farooqdrive",
+  "version": "1.0.1",
+  "description": "Unified storage across multiple Google Drive accounts",
+  "main": "src/main.js",
+  "author": "Mohammad Farooq",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis portable --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.farooqdrive.desktop",
+    "productName": "FarooqDrive",
+    "asar": true,
+    "files": ["src/**/*", "package.json", "NOTICE.txt"],
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {"target": "nsis", "arch": ["x64"]},
+        {"target": "portable", "arch": ["x64"]}
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FarooqDrive"
+    }
+  }
 }
