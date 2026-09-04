@@ -12,6 +12,7 @@ FarooqDrive is a standalone Windows desktop application that combines multiple G
 - Maintain local virtual folders that can contain files stored across different Google accounts.
 - Manual sync imports files found under each account's `Farooqdrive` folder.
 - Preview, download, rename, move virtually, and delete files.
+- Navigate like a normal file manager with Back, Forward, Up, Home, clickable breadcrumbs, visible row actions, keyboard shortcuts, and supported Undo operations.
 - Store Google OAuth credentials and account tokens encrypted with Windows/Electron secure storage.
 - Use embedded SQLite in the desktop app. No MySQL, Docker, Node.js, or local server is required for end users.
 
