@@ -36,7 +36,7 @@ database, or signing certificate.
 
 ## Status
 
-Version 1.1.0 is a release candidate until Google OAuth is verified with the
+Version 1.1.1 is a release candidate until Google OAuth is verified with the
 owner's production domains and the Windows installer is tested on clean Windows
 11 and Windows 10 machines.
 
