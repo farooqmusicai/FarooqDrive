@@ -58,7 +58,15 @@ function initDb() {
       FOREIGN KEY(virtual_folder_id) REFERENCES virtual_folders(id) ON DELETE SET NULL
     );
   `);
+  migrateSettingsSchema();
   return db;
+}
+
+function migrateSettingsSchema() {
+  const columns = db.prepare('PRAGMA table_info(settings)').all().map(row => String(row.name));
+  if (!columns.includes('value')) db.exec('ALTER TABLE settings ADD COLUMN value TEXT');
+  const legacy = ['encrypted_value', 'setting_value', 'data', 'val'].find(name => columns.includes(name));
+  if (legacy) db.exec(`UPDATE settings SET value=COALESCE(value, "${legacy}")`);
 }
 
 function getDb() {
