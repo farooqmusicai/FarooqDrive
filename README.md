@@ -3,6 +3,7 @@
 FarooqDrive presents multiple Google Drive accounts in one file-manager
 interface. This repository contains:
 
+- `apps/flutter`: cross-platform edition; Web is the first reference platform.
 - `apps/desktop`: standalone Windows 11 desktop edition (Windows 10 best effort).
 - `dist`: install-free web edition.
 - `docs`: Google OAuth, usage, build, publishing, privacy, and troubleshooting.

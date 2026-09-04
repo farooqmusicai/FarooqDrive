@@ -1,0 +1,35 @@
+name: Build Flutter Web
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/flutter/**'
+      - '.github/workflows/build-flutter-web.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install packages
+        working-directory: apps/flutter
+        run: flutter pub get
+      - name: Analyze
+        working-directory: apps/flutter
+        run: flutter analyze
+      - name: Test
+        working-directory: apps/flutter
+        run: flutter test
+      - name: Build Web
+        working-directory: apps/flutter
+        run: flutter build web --release --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: farooqdrive-flutter-web
+          path: apps/flutter/build/web

@@ -1,0 +1,581 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'drive_controller.dart';
+import 'models.dart';
+
+void main() => runApp(const FarooqDriveApp());
+
+class FarooqDriveApp extends StatelessWidget {
+  const FarooqDriveApp({super.key});
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'FarooqDrive',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xff0b67d1),
+            surface: const Color(0xfff6f8fc),
+          ),
+          scaffoldBackgroundColor: const Color(0xfff6f8fc),
+          fontFamily: 'Arial',
+          useMaterial3: true,
+        ),
+        home: const FileManagerPage(),
+      );
+}
+
+class FileManagerPage extends StatefulWidget {
+  const FileManagerPage({super.key});
+
+  @override
+  State<FileManagerPage> createState() => _FileManagerPageState();
+}
+
+class _FileManagerPageState extends State<FileManagerPage> {
+  final controller = DriveController();
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    controller
+      ..removeListener(_changed)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+    final message = controller.error;
+    if (message != null && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message)));
+      });
+    }
+  }
+
+  Future<String?> _ask(String title, {String initial = ''}) async {
+    final input = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: input,
+          autofocus: true,
+          onSubmitted: (value) => Navigator.pop(context, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, input.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _confirm(String title, String message) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+
+  Future<void> _upload() async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    final file = result?.files.single;
+    if (file?.bytes == null) return;
+    await controller.upload(file!.name, file.bytes!, null);
+  }
+
+  Future<void> _download() async {
+    for (final item in controller.selectedItems) {
+      if (item.isFolder) continue;
+      if (item.mimeType.startsWith('application/vnd.google-apps.')) {
+        final link = item.webViewLink;
+        if (link != null) await launchUrl(Uri.parse(link));
+        continue;
+      }
+      final bytes = await controller.download(item);
+      final dot = item.name.lastIndexOf('.');
+      await FileSaver.instance.saveFile(
+        name: dot > 0 ? item.name.substring(0, dot) : item.name,
+        bytes: bytes,
+        ext: dot > 0 ? item.name.substring(dot + 1) : '',
+        mimeType: MimeType.other,
+        customMimeType: item.mimeType,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 850;
+    return Scaffold(
+      drawer: compact ? Drawer(child: _Sidebar(controller: controller)) : null,
+      body: SafeArea(
+        child: Row(
+          children: [
+            if (!compact)
+              SizedBox(width: 270, child: _Sidebar(controller: controller)),
+            Expanded(
+              child: Column(
+                children: [
+                  _Header(controller: controller, showMenu: compact),
+                  if (controller.loading) const LinearProgressIndicator(),
+                  _Toolbar(
+                    controller: controller,
+                    onUpload: _upload,
+                    onNewFolder: () async {
+                      final name = await _ask('New folder');
+                      if (name != null && name.isNotEmpty) {
+                        await controller.createFolder(name);
+                      }
+                    },
+                    onRename: () async {
+                      final item = controller.selectedItems.single;
+                      final name = await _ask('Rename', initial: item.name);
+                      if (name != null && name.isNotEmpty) {
+                        await controller.renameSelected(name);
+                      }
+                    },
+                    onTrash: () async {
+                      if (await _confirm(
+                        'Move to Trash?',
+                        'The selected items will be moved to Google Drive Trash.',
+                      )) {
+                        await controller.trashSelected();
+                      }
+                    },
+                    onDownload: _download,
+                  ),
+                  Expanded(child: _FileList(controller: controller)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({required this.controller});
+  final DriveController controller;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+        color: const Color(0xff0b1d31),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Color(0xff278cff),
+                    child: Text('FD', style: TextStyle(color: Colors.white)),
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'FarooqDrive',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 21,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              _DriveTile(
+                title: 'All Drives',
+                subtitle: 'Unified view',
+                selected: controller.allDrives,
+                onTap: () => controller.selectAccount(null),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(12, 24, 12, 10),
+                child: Text(
+                  'GOOGLE ACCOUNTS',
+                  style: TextStyle(color: Color(0xff8da5c1), fontSize: 12),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  children: controller.accounts
+                      .map((account) => _DriveTile(
+                            title: account.name,
+                            subtitle: account.email,
+                            selected:
+                                controller.selectedAccountId == account.id,
+                            onTap: () => controller.selectAccount(account.id),
+                          ))
+                      .toList(),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: controller.loading ? null : controller.addAccount,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Google account'),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _DriveTile extends StatelessWidget {
+  const _DriveTile({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        selected: selected,
+        selectedTileColor: const Color(0xff203a57),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(title,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w700)),
+        subtitle: Text(subtitle,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Color(0xff9db5d1))),
+        onTap: onTap,
+      );
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.controller, required this.showMenu});
+  final DriveController controller;
+  final bool showMenu;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                if (showMenu)
+                  Builder(
+                    builder: (context) => IconButton(
+                      onPressed: () => Scaffold.of(context).openDrawer(),
+                      icon: const Icon(Icons.menu),
+                    ),
+                  ),
+                Expanded(
+                  child: Text(
+                    controller.allDrives
+                        ? 'All Drives'
+                        : controller.selectedAccount?.name ?? 'FarooqDrive',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xff0b1d31),
+                        ),
+                  ),
+                ),
+                SizedBox(
+                  width: showMenu ? 200 : 310,
+                  child: SearchBar(
+                    leading: const Icon(Icons.search),
+                    hintText: 'Search this folder',
+                    onChanged: controller.setQuery,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Up',
+                  onPressed: controller.currentPath.length > 1
+                      ? controller.goUp
+                      : null,
+                  icon: const Icon(Icons.arrow_upward),
+                ),
+                if (controller.allDrives)
+                  const Text('Connected Google Drives')
+                else
+                  Expanded(
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        for (var index = 0;
+                            index < controller.currentPath.length;
+                            index++) ...[
+                          TextButton(
+                            onPressed: () => controller.openCrumb(index),
+                            child: Text(controller.currentPath[index].name),
+                          ),
+                          if (index < controller.currentPath.length - 1)
+                            const Icon(Icons.chevron_right, size: 18),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+}
+
+class _Toolbar extends StatelessWidget {
+  const _Toolbar({
+    required this.controller,
+    required this.onUpload,
+    required this.onNewFolder,
+    required this.onRename,
+    required this.onTrash,
+    required this.onDownload,
+  });
+  final DriveController controller;
+  final VoidCallback onUpload;
+  final VoidCallback onNewFolder;
+  final VoidCallback onRename;
+  final VoidCallback onTrash;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = controller.selectedItems.length;
+    final hasDrive = controller.selectedAccount != null;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xffdce3ed)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: hasDrive ? onNewFolder : null,
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('New folder'),
+          ),
+          FilledButton.tonalIcon(
+            onPressed: hasDrive ? onUpload : null,
+            icon: const Icon(Icons.upload),
+            label: const Text('Upload'),
+          ),
+          TextButton.icon(
+            onPressed: count > 0 ? onDownload : null,
+            icon: const Icon(Icons.download),
+            label: const Text('Download'),
+          ),
+          TextButton.icon(
+            onPressed: count > 0
+                ? () => controller.setClipboard(ClipboardMode.copy)
+                : null,
+            icon: const Icon(Icons.copy_outlined),
+            label: const Text('Copy'),
+          ),
+          TextButton.icon(
+            onPressed: count > 0
+                ? () => controller.setClipboard(ClipboardMode.move)
+                : null,
+            icon: const Icon(Icons.content_cut),
+            label: const Text('Cut'),
+          ),
+          TextButton.icon(
+            onPressed: hasDrive && controller.clipboard != null
+                ? controller.paste
+                : null,
+            icon: const Icon(Icons.content_paste),
+            label: const Text('Paste'),
+          ),
+          TextButton.icon(
+            onPressed: count == 1 ? onRename : null,
+            icon: const Icon(Icons.drive_file_rename_outline),
+            label: const Text('Rename'),
+          ),
+          TextButton.icon(
+            onPressed: count > 0 ? onTrash : null,
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Trash'),
+          ),
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: controller.refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+          DropdownButton<String>(
+            value: controller.sort,
+            underline: const SizedBox.shrink(),
+            items: const [
+              DropdownMenuItem(value: 'name', child: Text('Name')),
+              DropdownMenuItem(value: 'modified', child: Text('Modified')),
+              DropdownMenuItem(value: 'size', child: Text('Size')),
+              DropdownMenuItem(value: 'type', child: Text('Type')),
+            ],
+            onChanged: (value) {
+              if (value != null) controller.setSort(value);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FileList extends StatelessWidget {
+  const _FileList({required this.controller});
+  final DriveController controller;
+
+  static String size(int? bytes) {
+    if (bytes == null) return '—';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var amount = bytes.toDouble();
+    var unit = 0;
+    while (amount >= 1024 && unit < units.length - 1) {
+      amount /= 1024;
+      unit++;
+    }
+    return '${unit == 0 ? amount.toStringAsFixed(0) : amount.toStringAsFixed(1)} ${units[unit]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final files = controller.visibleFiles;
+    if (files.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.folder_open, size: 54, color: Color(0xff8ba0b8)),
+            const SizedBox(height: 12),
+            Text(
+              controller.accounts.isEmpty
+                  ? 'Connect a Google account to begin.'
+                  : 'No files in this folder.',
+            ),
+          ],
+        ),
+      );
+    }
+    final allSelected =
+        files.every((item) => controller.selectedKeys.contains(controller.keyOf(item)));
+    return Card(
+      margin: const EdgeInsets.all(20),
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      child: ListView(
+        children: [
+          Container(
+            color: const Color(0xffeef3f9),
+            child: ListTile(
+              leading: Checkbox(
+                value: allSelected,
+                onChanged: (value) => controller.toggleAll(value ?? false),
+              ),
+              title: const Row(
+                children: [
+                  Expanded(flex: 4, child: Text('Name')),
+                  Expanded(flex: 3, child: Text('Account')),
+                  Expanded(child: Text('Size')),
+                  Expanded(flex: 2, child: Text('Modified')),
+                ],
+              ),
+            ),
+          ),
+          for (final item in files)
+            Column(
+              children: [
+                ListTile(
+                  leading: Checkbox(
+                    value: controller.selectedKeys.contains(controller.keyOf(item)),
+                    onChanged: (value) => controller.toggle(item, value ?? false),
+                  ),
+                  title: Row(
+                    children: [
+                      Icon(item.isFolder ? Icons.folder : Icons.insert_drive_file,
+                          color: item.isFolder
+                              ? const Color(0xffffb526)
+                              : const Color(0xff5f748d)),
+                      const SizedBox(width: 10),
+                      Expanded(flex: 4, child: Text(item.name, overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        flex: 3,
+                        child: Text(item.accountEmail, overflow: TextOverflow.ellipsis),
+                      ),
+                      Expanded(child: Text(item.isFolder ? '—' : size(item.size))),
+                      Expanded(
+                        flex: 2,
+                        child: Text(item.modifiedTime == null
+                            ? '—'
+                            : DateFormat.yMMMd().add_jm().format(item.modifiedTime!.toLocal())),
+                      ),
+                    ],
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Open',
+                    icon: const Icon(Icons.open_in_new),
+                    onPressed: () async {
+                      if (item.isFolder) {
+                        await controller.openFolder(item);
+                      } else if (item.webViewLink != null) {
+                        await launchUrl(Uri.parse(item.webViewLink!));
+                      }
+                    },
+                  ),
+                  onTap: () => controller.toggle(
+                    item,
+                    !controller.selectedKeys.contains(controller.keyOf(item)),
+                  ),
+                  onLongPress: () => controller.openFolder(item),
+                ),
+                const Divider(height: 1),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
