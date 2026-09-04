@@ -5,6 +5,7 @@
 - Windows and responsive web file-manager layouts.
 - Multiple account connection and account switching.
 - Folder navigation, search, sorting, multi-select, create folder, upload.
+- Visible Back, Forward, Up, Home, Open, Download, Rename, Trash, and supported Undo controls in both editions.
 - Same-account copy/move and Google Drive Trash.
 - Unified quota display.
 - BYO OAuth and credential-free repository policy.
