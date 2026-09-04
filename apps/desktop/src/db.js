@@ -1,13 +1,27 @@
 const path = require('path');
+const fs = require('fs');
 const { app } = require('electron');
 const { DatabaseSync } = require('node:sqlite');
 const { encrypt, decrypt } = require('./crypto');
 
 let db;
 
+const REQUIRED_SCHEMA = {
+  settings: ['key', 'value'],
+  accounts: ['id', 'email', 'display_name', 'photo_url', 'permission_id', 'access_token_enc', 'refresh_token_enc', 'expires_at', 'root_folder_id', 'quota_limit', 'quota_usage', 'connected_at'],
+  virtual_folders: ['id', 'name', 'parent_id'],
+  files: ['id', 'account_id', 'drive_file_id', 'name', 'mime_type', 'size', 'virtual_folder_id', 'drive_parent_id', 'modified_time', 'web_view_link', 'is_drive_folder', 'sync_path']
+};
+
 function initDb() {
   const dbPath = path.join(app.getPath('userData'), 'farooqdrive.sqlite');
   db = new DatabaseSync(dbPath);
+  if (hasIncompatibleExistingSchema()) {
+    db.close();
+    const backupPath = path.join(app.getPath('userData'), `farooqdrive-legacy-${Date.now()}.sqlite`);
+    fs.renameSync(dbPath, backupPath);
+    db = new DatabaseSync(dbPath);
+  }
   db.exec(`
     PRAGMA journal_mode=WAL;
     PRAGMA foreign_keys=ON;
@@ -60,6 +74,17 @@ function initDb() {
   `);
   migrateSettingsSchema();
   return db;
+}
+
+function hasIncompatibleExistingSchema() {
+  const existing = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => String(row.name)));
+  return Object.entries(REQUIRED_SCHEMA).some(([table, required]) => {
+    if (!existing.has(table)) return false;
+    const info = db.prepare(`PRAGMA table_info("${table}")`).all();
+    const columns = new Set(info.map(row => String(row.name)));
+    if (required.some(column => !columns.has(column))) return true;
+    return table === 'settings' && !info.some(row => row.name === 'key' && Number(row.pk) === 1);
+  });
 }
 
 function migrateSettingsSchema() {
