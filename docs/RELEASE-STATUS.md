@@ -1,4 +1,4 @@
-# Release status — 1.1.1 RC
+# Release status — 1.1.2 RC
 
 ## Implemented in source
 
