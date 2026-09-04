@@ -286,6 +286,20 @@ async function trashDriveFile(accountId, fileId) {
   });
 }
 
+async function restoreDriveFile(accountId, fileId) {
+  return driveJson(accountId, `/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,trashed`, {
+    method: 'PATCH', body: JSON.stringify({ trashed: false })
+  });
+}
+
+async function renameDriveFile(accountId, fileId, name) {
+  const clean = String(name || '').trim();
+  if (!clean) throw new Error('File name is required.');
+  return driveJson(accountId, `/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name`, {
+    method: 'PATCH', body: JSON.stringify({ name: clean })
+  });
+}
+
 async function syncAccount(accountId) {
   const rootId = await ensureRootFolder(accountId);
   const queue = [{ id: rootId, path: [] }];
@@ -369,5 +383,28 @@ async function downloadFile(fileId, destination) {
   return destination;
 }
 
+function suggestedDriveDownloadName(file) {
+  const info = exportInfo(file.mimeType);
+  if (!info) return file.name;
+  return file.name.toLowerCase().endsWith(info.ext) ? file.name : file.name + info.ext;
+}
+
+async function downloadDriveFile(accountId, file, destination) {
+  const token = await validAccessToken(accountId);
+  const info = exportInfo(file.mimeType);
+  const url = info
+    ? `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}/export?mimeType=${encodeURIComponent(info.mime)}`
+    : `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}?alt=media`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Download failed: Google API ${res.status} ${await res.text()}`);
+  const out = fs.createWriteStream(destination);
+  await new Promise((resolve, reject) => {
+    const { Readable } = require('stream');
+    Readable.fromWeb(res.body).pipe(out).on('finish', resolve).on('error', reject);
+  });
+  return destination;
+}
+
 module.exports = { startOAuth, refreshQuota, syncAll, uploadFile, renameFile, deleteFile, downloadFile, suggestedDownloadName,
-  browseFolder, createDriveFolder, moveDriveFile, copyDriveFile, trashDriveFile };
+  browseFolder, createDriveFolder, moveDriveFile, copyDriveFile, trashDriveFile, restoreDriveFile, renameDriveFile,
+  downloadDriveFile, suggestedDriveDownloadName };
