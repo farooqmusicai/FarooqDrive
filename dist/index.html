@@ -21,7 +21,15 @@
 
     <main class="workspace">
       <header class="topbar">
-        <div><h1 id="viewTitle">All Drives</h1><div id="breadcrumb" class="breadcrumb"></div></div>
+        <div class="location"><h1 id="viewTitle">All Drives</h1><div class="navline">
+          <div class="navigation" aria-label="Folder navigation">
+            <button id="backBtn" title="Back (Alt+Left)" disabled>← <span>Back</span></button>
+            <button id="forwardBtn" title="Forward (Alt+Right)" disabled>→</button>
+            <button id="upBtn" title="Parent folder (Alt+Up)" disabled>↑ <span>Up</span></button>
+            <button id="homeBtn" title="My Drive root">⌂ <span>Home</span></button>
+          </div>
+          <div id="breadcrumb" class="breadcrumb"></div>
+        </div></div>
         <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Search this folder"></label>
       </header>
 
@@ -31,10 +39,13 @@
         <button id="newFolder">＋ New folder</button>
         <label class="upload">⇧ Upload<input id="uploadInput" type="file" multiple hidden></label>
         <span class="divider"></span>
+        <button id="openBtn" disabled>Open</button><button id="downloadBtn" disabled>Download</button>
         <button id="copyBtn" disabled>Copy</button><button id="cutBtn" disabled>Cut</button>
         <button id="pasteBtn" disabled>Paste</button><button id="renameBtn" disabled>Rename</button>
         <button id="deleteBtn" class="danger" disabled>Trash</button>
+        <button id="undoBtn" title="Undo last action (Ctrl+Z)" disabled>↶ Undo</button>
         <span class="spacer"></span>
+        <span id="selectionInfo" class="selection-info"></span>
         <select id="sort" aria-label="Sort files">
           <option value="name">Name</option><option value="modifiedTime">Modified</option>
           <option value="size">Size</option><option value="mimeType">Type</option>
@@ -66,7 +77,7 @@
   <dialog id="helpDialog">
     <form method="dialog" class="dialog-card help">
       <header><h2>FarooqDrive help</h2><button value="cancel" aria-label="Close">×</button></header>
-      <ol><li>Create your own Google Cloud project and enable Google Drive API.</li><li>Create a Web OAuth Client and add this site to Authorized JavaScript origins.</li><li>Save the Client ID in Settings, then add your Google accounts.</li><li>Select files to copy, cut, rename, download, or move to Trash.</li></ol>
+      <ol><li>Create your own Google Cloud project and enable Google Drive API.</li><li>Create a Web OAuth Client and add this site to Authorized JavaScript origins.</li><li>Save the Client ID in Settings, then add your Google accounts.</li><li>Use Back, Forward, Up, Home, or the clickable folder path to navigate.</li><li>Select files to open, download, copy, cut, rename, or move to Trash. Undo restores the latest supported action.</li></ol>
       <p class="notice">No Client Secret belongs in this web app. Access tokens stay only in this page session.</p>
     </form>
   </dialog>
