@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="FarooqDrive — manage multiple Google Drive accounts in one secure file manager.">
+  <title>FarooqDrive Complete</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div id="app" class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark">FD</span><span>FarooqDrive</span></div>
+      <button id="allDrives" class="drive-item active"><span>◈</span><span><b>All Drives</b><small>Unified view</small></span></button>
+      <div class="side-title">GOOGLE ACCOUNTS</div>
+      <div id="accounts" class="accounts"></div>
+      <button id="addAccount" class="add-account">＋ Add Google account</button>
+      <div class="side-foot"><button id="openHelp">Help</button><button id="openSettings">Settings</button></div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div><h1 id="viewTitle">All Drives</h1><div id="breadcrumb" class="breadcrumb"></div></div>
+        <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Search this folder"></label>
+      </header>
+
+      <section id="storage" class="storage"></section>
+
+      <nav class="toolbar" aria-label="File actions">
+        <button id="newFolder">＋ New folder</button>
+        <label class="upload">⇧ Upload<input id="uploadInput" type="file" multiple hidden></label>
+        <span class="divider"></span>
+        <button id="copyBtn" disabled>Copy</button><button id="cutBtn" disabled>Cut</button>
+        <button id="pasteBtn" disabled>Paste</button><button id="renameBtn" disabled>Rename</button>
+        <button id="deleteBtn" class="danger" disabled>Trash</button>
+        <span class="spacer"></span>
+        <select id="sort" aria-label="Sort files">
+          <option value="name">Name</option><option value="modifiedTime">Modified</option>
+          <option value="size">Size</option><option value="mimeType">Type</option>
+        </select>
+        <button id="refresh" title="Refresh">↻</button>
+      </nav>
+
+      <section class="file-surface">
+        <table>
+          <thead><tr><th><input id="selectAll" type="checkbox" aria-label="Select all"></th><th>Name</th><th>Owner account</th><th>Size</th><th>Modified</th><th></th></tr></thead>
+          <tbody id="files"></tbody>
+        </table>
+        <div id="empty" class="empty"><div class="empty-icon">▱</div><b>No files to show</b><span>Connect an account or open another folder.</span></div>
+      </section>
+      <div id="queue" class="queue" hidden></div>
+    </main>
+  </div>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" class="dialog-card">
+      <header><h2>Web OAuth settings</h2><button value="cancel" aria-label="Close">×</button></header>
+      <p>Paste your own Google <b>Web application Client ID</b>. A Client Secret is never used in a browser.</p>
+      <label>Google Client ID<input id="clientId" autocomplete="off" placeholder="…apps.googleusercontent.com"></label>
+      <div class="notice">Enable Google Drive API and add this exact website origin under Authorized JavaScript origins.</div>
+      <footer><button value="cancel">Cancel</button><button id="saveSettings" value="default" class="primary">Save</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="helpDialog">
+    <form method="dialog" class="dialog-card help">
+      <header><h2>FarooqDrive help</h2><button value="cancel" aria-label="Close">×</button></header>
+      <ol><li>Create your own Google Cloud project and enable Google Drive API.</li><li>Create a Web OAuth Client and add this site to Authorized JavaScript origins.</li><li>Save the Client ID in Settings, then add your Google accounts.</li><li>Select files to copy, cut, rename, download, or move to Trash.</li></ol>
+      <p class="notice">No Client Secret belongs in this web app. Access tokens stay only in this page session.</p>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

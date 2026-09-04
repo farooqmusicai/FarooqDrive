@@ -1,5 +1,15 @@
 node_modules/
-dist/
+dist-electron/
+apps/desktop/node_modules/
+apps/desktop/dist/
 *.log
+.env
+.env.*
+!.env.example
+oauth*.json
+credentials*.json
+tokens*.json
+*.sqlite
+*.db
 .DS_Store
 Thumbs.db

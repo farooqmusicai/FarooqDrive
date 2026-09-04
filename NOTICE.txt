@@ -1,4 +1,5 @@
-FarooqDrive
+FarooqDrive Complete Edition
 Copyright © 2026 Mohammad Farooq. All Rights Reserved.
 
-This is an independently written application. No third-party project source code is included in this repository.
+Google Drive and Google are trademarks of Google LLC. FarooqDrive is an
+independent project and is not endorsed by or affiliated with Google.

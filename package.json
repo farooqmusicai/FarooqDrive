@@ -1,39 +1,13 @@
 {
-  "name": "farooqdrive",
-  "version": "1.0.1",
-  "description": "Unified storage across multiple Google Drive accounts",
-  "main": "src/main.js",
-  "author": "Mohammad Farooq",
+  "name": "farooqdrive-complete",
+  "version": "1.1.0",
   "private": true,
+  "description": "FarooqDrive Complete Edition — Windows and web Google Drive file manager",
   "scripts": {
-    "start": "electron .",
-    "dist:win": "electron-builder --win nsis portable --x64 --publish never"
+    "check": "node --check dist/app.js && node --check apps/desktop/src/main.js && node --check apps/desktop/src/google.js && node --check apps/desktop/src/db.js && node --check apps/desktop/src/renderer/app.js",
+    "desktop:install": "npm --prefix apps/desktop install",
+    "desktop:start": "npm --prefix apps/desktop start",
+    "desktop:build": "npm --prefix apps/desktop run dist:win"
   },
-  "devDependencies": {
-    "electron": "^38.0.0",
-    "electron-builder": "^26.0.12"
-  },
-  "build": {
-    "appId": "com.farooqdrive.desktop",
-    "productName": "FarooqDrive",
-    "asar": true,
-    "files": ["src/**/*", "package.json", "NOTICE.txt"],
-    "directories": {
-      "buildResources": "build",
-      "output": "dist"
-    },
-    "win": {
-      "target": [
-        {"target": "nsis", "arch": ["x64"]},
-        {"target": "portable", "arch": ["x64"]}
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "FarooqDrive"
-    }
-  }
+  "license": "SEE LICENSE"
 }
