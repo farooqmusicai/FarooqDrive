@@ -81,6 +81,17 @@
       <p class="notice">No Client Secret belongs in this web app. Access tokens stay only in this page session.</p>
     </form>
   </dialog>
+  <dialog id="transferDialog">
+    <form method="dialog" class="dialog-card">
+      <header><h2>Transfer to another Drive</h2><button value="cancel" aria-label="Close">×</button></header>
+      <p id="transferFileName"></p>
+      <label>Action<select id="transferAction"><option value="copy">Copy — keep original</option><option value="move">Move — remove original after successful copy</option></select></label>
+      <label>Destination Google Drive<select id="transferAccount"></select></label>
+      <label>Destination folder<input id="transferFolder" placeholder="Leave blank for My Drive"></label>
+      <p class="notice">The browser transfers the file directly between your Google accounts. FarooqDrive does not store it on a server.</p>
+      <footer><button value="cancel">Cancel</button><button id="startTransfer" value="default" class="primary">Start transfer</button></footer>
+    </form>
+  </dialog>
   <div id="toast" class="toast" hidden></div>
   <script src="app.js"></script>
 </body>
