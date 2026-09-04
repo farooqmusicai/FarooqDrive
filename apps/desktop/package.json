@@ -1,6 +1,6 @@
 {
   "name": "farooqdrive",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "FarooqDrive - unified storage across multiple Google Drive accounts",
   "main": "src/main.js",
   "author": "Mohammad Farooq",
