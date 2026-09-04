@@ -5,6 +5,6 @@
 .side .accounts button{border:0;background:transparent;color:#dfe8f7;padding:11px;border-radius:9px;text-align:left;cursor:pointer}
 .side .accounts button.active,.side .accounts button:hover{background:#ffffff18}
 .top input{min-width:300px;padding:10px 14px;border:1px solid #dce4ee;border-radius:10px}
-.toolbar{display:flex;gap:7px;background:white;border:1px solid #dce4ee;border-bottom:0;padding:10px;border-radius:12px 12px 0 0}
+.locationbar{display:flex;align-items:center;gap:12px;margin-top:8px}.navigation{display:flex;gap:5px}.navigation button{border:1px solid #dce4ee;background:#fff;border-radius:8px;padding:6px 9px;cursor:pointer}.navigation button:disabled{opacity:.4;cursor:not-allowed}.toolbar{display:flex;align-items:center;gap:7px;background:white;border:1px solid #dce4ee;border-bottom:0;padding:10px;border-radius:12px 12px 0 0;overflow-x:auto}
 .toolbar button,.toolbar select{border:1px solid #dce4ee;background:white;border-radius:8px;padding:8px 10px}
-.toolbar select{margin-left:auto}.file-name{display:flex;align-items:center;gap:10px;cursor:pointer}
+.toolbar button:disabled{opacity:.4}.toolbar .danger-text{color:#b91c1c}.toolbar select{margin-left:auto}.selected-count{color:#64748b;font-size:12px;white-space:nowrap}.file-name{display:flex;align-items:center;gap:10px;cursor:pointer}.row-actions{white-space:nowrap}.row-actions button{border:1px solid transparent;background:#fff;border-radius:7px;padding:5px 8px;cursor:pointer}.row-actions button:hover{border-color:#dce4ee;background:#f1f5f9}
