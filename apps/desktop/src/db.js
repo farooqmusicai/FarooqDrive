@@ -63,10 +63,29 @@ function initDb() {
 }
 
 function migrateSettingsSchema() {
-  const columns = db.prepare('PRAGMA table_info(settings)').all().map(row => String(row.name));
-  if (!columns.includes('value')) db.exec('ALTER TABLE settings ADD COLUMN value TEXT');
-  const legacy = ['encrypted_value', 'setting_value', 'data', 'val'].find(name => columns.includes(name));
-  if (legacy) db.exec(`UPDATE settings SET value=COALESCE(value, "${legacy}")`);
+  const info = db.prepare('PRAGMA table_info(settings)').all();
+  const columns = info.map(row => String(row.name));
+  const canonical = columns.includes('key') && columns.includes('value') && info.some(row => row.name === 'key' && Number(row.pk) === 1);
+  if (canonical) return;
+
+  const keyColumn = ['key', 'setting_key', 'name', 'id'].find(name => columns.includes(name));
+  const valueColumn = ['value', 'encrypted_value', 'setting_value', 'data', 'val'].find(name => columns.includes(name));
+  const copySql = keyColumn && valueColumn
+    ? `INSERT OR REPLACE INTO settings(key,value) SELECT CAST("${keyColumn}" AS TEXT), CAST("${valueColumn}" AS TEXT) FROM settings_legacy WHERE "${keyColumn}" IS NOT NULL`
+    : '';
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec('DROP TABLE IF EXISTS settings_legacy');
+    db.exec('ALTER TABLE settings RENAME TO settings_legacy');
+    db.exec('CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)');
+    if (copySql) db.exec(copySql);
+    db.exec('DROP TABLE settings_legacy');
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 function getDb() {
