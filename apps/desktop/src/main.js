@@ -53,6 +53,15 @@ app.whenReady().then(() => {
   safeHandler('drive:move-file', async (_e, p) => google.moveDriveFile(Number(p.accountId), p.fileId, p.oldParents || [], p.newParentId || 'root'));
   safeHandler('drive:copy-file', async (_e, p) => google.copyDriveFile(Number(p.accountId), p.fileId, p.parentId || 'root', p.name));
   safeHandler('drive:trash-file', async (_e, p) => google.trashDriveFile(Number(p.accountId), p.fileId));
+  safeHandler('drive:restore-file', async (_e, p) => google.restoreDriveFile(Number(p.accountId), p.fileId));
+  safeHandler('drive:rename-file', async (_e, p) => google.renameDriveFile(Number(p.accountId), p.fileId, p.name));
+  safeHandler('drive:download-file', async (_e, p) => {
+    const suggested = google.suggestedDriveDownloadName(p.file);
+    const save = await dialog.showSaveDialog(mainWindow, { defaultPath: suggested });
+    if (save.canceled || !save.filePath) return { canceled: true };
+    await google.downloadDriveFile(Number(p.accountId), p.file, save.filePath);
+    return { canceled: false, path: save.filePath };
+  });
   safeHandler('folder:create', async (_e, payload) => { db.createVirtualFolder(payload.name, payload.parentId ?? null); return state(); });
   safeHandler('file:move', async (_e, payload) => { db.moveLocalFile(Number(payload.id), payload.folderId ?? null); return state(); });
   safeHandler('file:rename', async (_e, payload) => { await google.renameFile(Number(payload.id), payload.name); return state(); });
