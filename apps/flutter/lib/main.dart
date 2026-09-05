@@ -946,9 +946,16 @@ class _FileViews extends StatelessWidget {
             runSpacing: 8,
             children: [
               ChoiceChip(
-                label: Text('All files (${controller.files.length})'),
-                selected: controller.viewMode == FileViewMode.all,
-                onSelected: (_) => controller.setViewMode(FileViewMode.all),
+                avatar: const Icon(Icons.insert_drive_file_outlined, size: 18),
+                label: Text('Files (${controller.fileCount})'),
+                selected: controller.viewMode == FileViewMode.files,
+                onSelected: (_) => controller.setViewMode(FileViewMode.files),
+              ),
+              ChoiceChip(
+                avatar: const Icon(Icons.folder_outlined, size: 18),
+                label: Text('Folders (${controller.folderCount})'),
+                selected: controller.viewMode == FileViewMode.folders,
+                onSelected: (_) => controller.setViewMode(FileViewMode.folders),
               ),
               ChoiceChip(
                 avatar: const Icon(Icons.content_copy, size: 18),
@@ -1180,9 +1187,11 @@ class _FileList extends StatelessWidget {
             Text(
               controller.accounts.isEmpty
                   ? 'Connect a Google account to begin.'
-                  : controller.viewMode == FileViewMode.all
+                  : controller.viewMode == FileViewMode.files
                       ? 'No files in this folder.'
-                      : 'No matching duplicates were found across your Drives.',
+                      : controller.viewMode == FileViewMode.folders
+                          ? 'No folders in this location.'
+                          : 'No matching duplicates were found across your Drives.',
             ),
           ],
         ),
@@ -1207,7 +1216,8 @@ class _FileList extends StatelessWidget {
                 children: [
                   const Expanded(flex: 4, child: Text('Name')),
                   const Expanded(flex: 3, child: Text('Account')),
-                  if (controller.viewMode != FileViewMode.all)
+                  if (controller.viewMode == FileViewMode.exactDuplicates ||
+                      controller.viewMode == FileViewMode.nameConflicts)
                     const Expanded(flex: 3, child: Text('Location')),
                   const Expanded(child: Text('Size')),
                   const Expanded(flex: 2, child: Text('Modified')),
@@ -1348,7 +1358,8 @@ class _FileList extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (controller.viewMode != FileViewMode.all)
+                      if (controller.viewMode == FileViewMode.exactDuplicates ||
+                          controller.viewMode == FileViewMode.nameConflicts)
                         Expanded(
                           flex: 3,
                           child: Tooltip(
