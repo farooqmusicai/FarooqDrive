@@ -10,6 +10,7 @@ class DriveAccount {
     this.refreshToken,
     this.tokenExpiry,
     this.oauthClientId,
+    this.oauthClientSecret,
     this.storageUsed = 0,
     this.storageLimit,
   });
@@ -22,6 +23,7 @@ class DriveAccount {
   final String? refreshToken;
   final DateTime? tokenExpiry;
   final String? oauthClientId;
+  final String? oauthClientSecret;
   final int storageUsed;
   final int? storageLimit;
 
@@ -30,6 +32,7 @@ class DriveAccount {
     String? refreshToken,
     DateTime? tokenExpiry,
     String? oauthClientId,
+    String? oauthClientSecret,
     int? storageUsed,
     int? storageLimit,
   }) => DriveAccount(
@@ -41,6 +44,7 @@ class DriveAccount {
         refreshToken: refreshToken ?? this.refreshToken,
         tokenExpiry: tokenExpiry ?? this.tokenExpiry,
         oauthClientId: oauthClientId ?? this.oauthClientId,
+        oauthClientSecret: oauthClientSecret ?? this.oauthClientSecret,
         storageUsed: storageUsed ?? this.storageUsed,
         storageLimit: storageLimit ?? this.storageLimit,
       );
