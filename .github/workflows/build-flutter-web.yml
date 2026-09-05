@@ -28,9 +28,7 @@ jobs:
         run: flutter test
       - name: Build Web
         working-directory: apps/flutter
-        run: |
-          cp ../desktop/build/icon.png web/favicon.png
-          flutter build web --release --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
+        run: flutter build web --release --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
       - uses: actions/upload-artifact@v4
         with:
           name: farooqdrive-flutter-web

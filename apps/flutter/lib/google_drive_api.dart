@@ -102,12 +102,14 @@ class GoogleDriveApi {
 
   Future<DriveAccount> refreshQuota(DriveAccount account) async {
     final uri = Uri.parse('$_api/about').replace(
-      queryParameters: const {'fields': 'storageQuota'},
+      queryParameters: const {
+        'fields': 'storageQuota(limit,usage,usageInDrive,usageInDriveTrash)',
+      },
     );
     final data = await _json(account, uri.toString());
     final quota = data['storageQuota'] as Map<String, dynamic>? ?? const {};
     return account.copyWith(
-      storageUsed: int.tryParse('${quota['usage'] ?? 0}') ?? 0,
+      storageUsed: int.tryParse('${quota['usageInDrive'] ?? quota['usage'] ?? 0}') ?? 0,
       storageLimit: int.tryParse('${quota['limit'] ?? ''}'),
     );
   }

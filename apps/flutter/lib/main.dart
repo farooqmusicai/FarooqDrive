@@ -198,9 +198,11 @@ class _FileManagerPageState extends State<FileManagerPage> {
               ),
             )
           : null,
-      body: SafeArea(
-        child: Row(
-          children: [
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Row(
+              children: [
             if (!compact)
               SizedBox(
                 width: 270,
@@ -247,8 +249,43 @@ class _FileManagerPageState extends State<FileManagerPage> {
                 ],
               ),
             ),
-          ],
-        ),
+              ],
+            ),
+          ),
+          if (controller.loading || controller.indexing)
+            Positioned.fill(
+              child: ColoredBox(
+                color: const Color(0x33000000),
+                child: Center(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 22,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 26,
+                            height: 26,
+                            child: CircularProgressIndicator(strokeWidth: 3),
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            controller.indexing
+                                ? 'Scanning all Drives and folders…'
+                                : controller.operationMessage,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -277,7 +314,7 @@ class _Sidebar extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(9),
                     child: Image.network(
-                      'favicon.png',
+                      'FarooqDrive.jpg',
                       width: 42,
                       height: 42,
                       fit: BoxFit.cover,
@@ -375,6 +412,29 @@ class _Sidebar extends StatelessWidget {
                   style: TextStyle(color: Colors.white),
                 ),
               ),
+              TextButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse('https://www.mymandoob.com/farooqdrive/'),
+                  mode: LaunchMode.platformDefault,
+                  webOnlyWindowName: '_blank',
+                ),
+                icon: const Icon(Icons.language, color: Color(0xff9db5d1)),
+                label: const Text(
+                  'FarooqDrive',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse('mailto:support@mymandoob.com'),
+                ),
+                icon: const Icon(Icons.support_agent, color: Color(0xff9db5d1)),
+                label: const Text(
+                  'Support: support@mymandoob.com',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),
@@ -469,7 +529,9 @@ class _Header extends StatelessWidget {
                   width: showMenu ? 200 : 310,
                   child: SearchBar(
                     leading: const Icon(Icons.search),
-                    hintText: 'Search this folder',
+                    hintText: controller.allDrives
+                        ? 'Search all Drives'
+                        : 'Search this folder',
                     onChanged: controller.setQuery,
                   ),
                 ),
@@ -696,8 +758,8 @@ class _Toolbar extends StatelessWidget {
             onPressed: count > 0
                 ? () => controller.setClipboard(ClipboardMode.move)
                 : null,
-            icon: const Icon(Icons.drive_file_move_outline),
-            label: const Text('Move'),
+            icon: const Icon(Icons.content_cut),
+            label: const Text('Cut'),
           ),
           TextButton.icon(
             onPressed: hasDrive && controller.clipboard != null
@@ -946,6 +1008,16 @@ class _FileList extends StatelessWidget {
           ),
         );
         return;
+      case _ItemAction.cut:
+        controller.setClipboardItem(ClipboardMode.move, item);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Cut. Open a destination Drive or folder and press Paste.',
+            ),
+          ),
+        );
+        return;
       case _ItemAction.move:
         await _moveItem(context, item);
         return;
@@ -1088,6 +1160,13 @@ class _FileList extends StatelessWidget {
                             ),
                           ),
                           const PopupMenuItem(
+                            value: _ItemAction.cut,
+                            child: ListTile(
+                              leading: Icon(Icons.content_cut),
+                              title: Text('Cut'),
+                            ),
+                          ),
+                          const PopupMenuItem(
                             value: _ItemAction.move,
                             child: ListTile(
                               leading: Icon(Icons.drive_file_move_outline),
@@ -1150,7 +1229,7 @@ class _FileList extends StatelessWidget {
                             ),
                           ),
                         ),
-                      Expanded(child: Text(item.isFolder ? '—' : size(item.size))),
+                      Expanded(child: Text(size(controller.sizeOf(item)))),
                       Expanded(
                         flex: 2,
                         child: Text(item.modifiedTime == null
@@ -1174,4 +1253,4 @@ class _FileList extends StatelessWidget {
   }
 }
 
-enum _ItemAction { open, copy, move, rename, delete, download, paste }
+enum _ItemAction { open, copy, cut, move, rename, delete, download, paste }

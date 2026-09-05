@@ -17,6 +17,7 @@ class DriveController extends ChangeNotifier {
   final List<DriveItem> indexedFiles = [];
   final Set<String> selectedKeys = {};
   final Map<String, List<FolderCrumb>> paths = {};
+  final Map<String, int> folderSizes = {};
 
   String? selectedAccountId;
   String webClientId = '';
@@ -28,6 +29,7 @@ class DriveController extends ChangeNotifier {
   bool indexing = false;
   bool indexReady = false;
   String? error;
+  String operationMessage = 'Working…';
 
   bool get allDrives => selectedAccountId == null;
   int get totalStorageUsed =>
@@ -54,12 +56,21 @@ class DriveController extends ChangeNotifier {
   }
 
   String keyOf(DriveItem item) => '${item.accountId}:${item.id}';
-  List<DriveItem> get selectedItems =>
-      files.where((item) => selectedKeys.contains(keyOf(item))).toList();
+  int? sizeOf(DriveItem item) =>
+      item.isFolder ? folderSizes[keyOf(item)] : item.size;
+  List<DriveItem> get selectedItems {
+    final available = <String, DriveItem>{
+      for (final item in files) keyOf(item): item,
+      for (final item in indexedFiles) keyOf(item): item,
+    };
+    return selectedKeys.map((key) => available[key]).whereType<DriveItem>().toList();
+  }
 
   List<DriveItem> get visibleFiles {
     final normalized = query.trim().toLowerCase();
-    final source = viewMode == FileViewMode.all ? files : indexedFiles;
+    final useGlobalIndex = viewMode != FileViewMode.all ||
+        (allDrives && normalized.isNotEmpty && indexReady);
+    final source = useGlobalIndex ? indexedFiles : files;
     final searched = source
         .where((item) =>
             normalized.isEmpty || item.name.toLowerCase().contains(normalized))
@@ -156,9 +167,12 @@ class DriveController extends ChangeNotifier {
             () => <FolderCrumb>[const FolderCrumb('root', 'My Drive')],
           );
         }
-        if (id == null) await _refreshQuotas();
+        if (id == null) {
+          await _refreshQuotas();
+          if (!indexReady) await _buildGlobalIndex();
+        }
         await _loadFiles();
-      });
+      }, message: id == null ? 'Calculating all Drives…' : 'Opening Drive…');
 
   Future<void> refresh() => _guard(() async {
         await _refreshQuotas();
@@ -230,9 +244,12 @@ class DriveController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setQuery(String value) {
+  Future<void> setQuery(String value) async {
     query = value;
     notifyListeners();
+    if (allDrives && value.trim().isNotEmpty && !indexReady && !indexing) {
+      await _guard(_buildGlobalIndex, message: 'Searching all Drives…');
+    }
   }
 
   void setSort(String value) {
@@ -253,6 +270,10 @@ class DriveController extends ChangeNotifier {
     notifyListeners();
     try {
       final groups = await Future.wait(accounts.map(api.listAllFiles));
+      folderSizes.clear();
+      for (final group in groups) {
+        _calculateFolderSizes(group);
+      }
       indexedFiles
         ..clear()
         ..addAll(groups.expand(_withLocations));
@@ -260,6 +281,33 @@ class DriveController extends ChangeNotifier {
     } finally {
       indexing = false;
       notifyListeners();
+    }
+  }
+
+  void _calculateFolderSizes(List<DriveItem> accountItems) {
+    final children = <String, List<DriveItem>>{};
+    for (final item in accountItems) {
+      for (final parentId in item.parents) {
+        children.putIfAbsent(parentId, () => []).add(item);
+      }
+    }
+    final cache = <String, int>{};
+    int totalFor(String folderId, Set<String> visiting) {
+      final cached = cache[folderId];
+      if (cached != null) return cached;
+      if (!visiting.add(folderId)) return 0;
+      var total = 0;
+      for (final item in children[folderId] ?? const <DriveItem>[]) {
+        total += item.isFolder
+            ? totalFor(item.id, visiting)
+            : (item.size ?? 0);
+      }
+      visiting.remove(folderId);
+      cache[folderId] = total;
+      return total;
+    }
+    for (final folder in accountItems.where((item) => item.isFolder)) {
+      folderSizes[keyOf(folder)] = totalFor(folder.id, <String>{});
     }
   }
 
@@ -319,7 +367,7 @@ class DriveController extends ChangeNotifier {
     await paste();
   }
 
-  Future<void> disconnectAccount(String accountId) async {
+  Future<void> disconnectAccount(String accountId) => _guard(() async {
     accounts.removeWhere((item) => item.id == accountId);
     files.removeWhere((item) => item.accountId == accountId);
     indexedFiles.removeWhere((item) => item.accountId == accountId);
@@ -327,9 +375,8 @@ class DriveController extends ChangeNotifier {
     if (selectedAccountId == accountId) selectedAccountId = null;
     indexReady = false;
     selectedKeys.clear();
-    notifyListeners();
     await _loadFiles();
-  }
+  }, message: 'Disconnecting Drive…');
 
   Future<void> createFolder(String name) => _guard(() async {
         final account = selectedAccount;
@@ -366,8 +413,19 @@ class DriveController extends ChangeNotifier {
         await _afterMutation();
       });
 
-  Future<Uint8List> download(DriveItem item) =>
-      api.downloadBytes(accountById(item.accountId)!, item);
+  Future<Uint8List> download(DriveItem item) async {
+    loading = true;
+    operationMessage = 'Downloading ${item.name}…';
+    error = null;
+    notifyListeners();
+    try {
+      return await api.downloadBytes(accountById(item.accountId)!, item);
+    } finally {
+      loading = false;
+      operationMessage = 'Working…';
+      notifyListeners();
+    }
+  }
 
   Future<void> paste() => _guard(() async {
         final clip = clipboard;
@@ -492,8 +550,12 @@ class DriveController extends ChangeNotifier {
     if (viewMode != FileViewMode.all) await _buildGlobalIndex();
   }
 
-  Future<void> _guard(Future<void> Function() action) async {
+  Future<void> _guard(
+    Future<void> Function() action, {
+    String message = 'Working…',
+  }) async {
     loading = true;
+    operationMessage = message;
     error = null;
     notifyListeners();
     try {
@@ -504,6 +566,7 @@ class DriveController extends ChangeNotifier {
       error = exception.toString();
     } finally {
       loading = false;
+      operationMessage = 'Working…';
       notifyListeners();
     }
   }
