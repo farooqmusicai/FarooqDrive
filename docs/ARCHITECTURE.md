@@ -2,10 +2,9 @@
 
 ## Windows
 
-Electron renderer → isolated preload IPC → Electron main process → Google OAuth
-loopback + Google Drive REST API. SQLite contains the local index; Electron
-safeStorage protects OAuth configuration and tokens where the OS supports it.
-Uploads stream from the user's PC to Google Drive.
+Flutter Windows UI → system browser OAuth with PKCE → temporary loopback
+callback → Google Drive REST API. The operating system's secure credential
+storage protects refresh tokens. No Client Secret is bundled in the app.
 
 ## Web
 
