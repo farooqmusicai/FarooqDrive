@@ -1,5 +1,7 @@
 # FarooqDrive user help
 
+Urdu version: [USER-HELP-URDU.md](USER-HELP-URDU.md)
+
 The same workflow applies to the Web and Windows editions.
 
 ## Connect Google accounts
