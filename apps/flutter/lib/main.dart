@@ -406,12 +406,27 @@ class _Sidebar extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'FarooqDrive',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 21,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'FarooqDrive',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 21,
+                          ),
+                        ),
+                        Text(
+                          'Version 13',
+                          style: TextStyle(
+                            color: Color(0xff9db5d1),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -509,6 +524,21 @@ class _Sidebar extends StatelessWidget {
                     icon: const Icon(
                       Icons.support_agent,
                       color: Color(0xff9db5d1),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => launchUrl(
+                      Uri.parse('https://www.farooqmusic.com/'),
+                      mode: LaunchMode.platformDefault,
+                      webOnlyWindowName: '_blank',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xff9db5d1),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                    ),
+                    child: const Text(
+                      'Design By',
+                      style: TextStyle(fontSize: 12),
                     ),
                   ),
                 ],
