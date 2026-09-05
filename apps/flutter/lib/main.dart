@@ -8,6 +8,31 @@ import 'drive_controller.dart';
 import 'google_auth.dart';
 import 'models.dart';
 
+const _driveColors = <Color>[
+  Color(0xff00a884),
+  Color(0xffff8a00),
+  Color(0xffb45cff),
+  Color(0xffe83e6f),
+  Color(0xff17a2d4),
+  Color(0xffd4a017),
+];
+
+Color _accountColor(DriveController controller, String accountId) {
+  final index = controller.accounts.indexWhere((item) => item.id == accountId);
+  return _driveColors[(index < 0 ? 0 : index) % _driveColors.length];
+}
+
+String _formatBytes(int bytes) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  var amount = bytes.toDouble();
+  var unit = 0;
+  while (amount >= 1024 && unit < units.length - 1) {
+    amount /= 1024;
+    unit++;
+  }
+  return '${unit == 0 ? amount.toStringAsFixed(0) : amount.toStringAsFixed(1)} ${units[unit]}';
+}
+
 void main() => runApp(const FarooqDriveApp());
 
 class FarooqDriveApp extends StatelessWidget {
@@ -216,6 +241,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                     },
                     onDownload: _download,
                   ),
+                  _FileViews(controller: controller),
                   Expanded(child: _FileList(controller: controller)),
                 ],
               ),
@@ -282,6 +308,11 @@ class _Sidebar extends StatelessWidget {
                       .map((account) => _DriveTile(
                             title: account.name,
                             subtitle: account.email,
+                            subtitleColor:
+                                _accountColor(controller, account.id),
+                            quota: account.storageLimit == null
+                                ? '${_formatBytes(account.storageUsed)} used'
+                                : '${_formatBytes(account.storageUsed)} / ${_formatBytes(account.storageLimit!)}',
                             selected:
                                 controller.selectedAccountId == account.id,
                             onTap: () => controller.selectAccount(account.id),
@@ -315,11 +346,15 @@ class _DriveTile extends StatelessWidget {
     required this.subtitle,
     required this.selected,
     required this.onTap,
+    this.subtitleColor,
+    this.quota,
   });
   final String title;
   final String subtitle;
   final bool selected;
   final VoidCallback onTap;
+  final Color? subtitleColor;
+  final String? quota;
 
   @override
   Widget build(BuildContext context) => ListTile(
@@ -330,9 +365,22 @@ class _DriveTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.w700)),
-        subtitle: Text(subtitle,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Color(0xff9db5d1))),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              subtitle,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: subtitleColor ?? const Color(0xff9db5d1)),
+            ),
+            if (quota != null)
+              Text(
+                quota!,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xff9db5d1), fontSize: 12),
+              ),
+          ],
+        ),
         onTap: onTap,
       );
 }
@@ -378,6 +426,40 @@ class _Header extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: controller.allDrives
+                    ? const Color(0xffe8f0fe)
+                    : _accountColor(controller, controller.selectedAccountId!)
+                        .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: controller.allDrives
+                  ? const Text(
+                      'You are working across all connected Drives',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    )
+                  : Text.rich(
+                      TextSpan(
+                        text: 'You are working on:  ',
+                        children: [
+                          TextSpan(
+                            text: controller.selectedAccount!.email,
+                            style: TextStyle(
+                              color: _accountColor(
+                                controller,
+                                controller.selectedAccountId!,
+                              ),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 6),
             Row(
               children: [
                 IconButton(
@@ -418,17 +500,6 @@ class _StorageSummary extends StatelessWidget {
   const _StorageSummary({required this.controller});
   final DriveController controller;
 
-  static String _size(int bytes) {
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    var amount = bytes.toDouble();
-    var unit = 0;
-    while (amount >= 1024 && unit < units.length - 1) {
-      amount /= 1024;
-      unit++;
-    }
-    return '${unit == 0 ? amount.toStringAsFixed(0) : amount.toStringAsFixed(1)} ${units[unit]}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final accounts = controller.allDrives
@@ -450,19 +521,19 @@ class _StorageSummary extends StatelessWidget {
           _StorageCard(
             icon: Icons.cloud_outlined,
             label: controller.allDrives ? 'Total storage' : 'Drive storage',
-            value: limit == null ? 'Not reported' : _size(limit),
+            value: limit == null ? 'Not reported' : _formatBytes(limit),
           ),
           const SizedBox(width: 10),
           _StorageCard(
             icon: Icons.data_usage,
             label: 'Used',
-            value: _size(used),
+            value: _formatBytes(used),
           ),
           const SizedBox(width: 10),
           _StorageCard(
             icon: Icons.cloud_done_outlined,
             label: 'Free',
-            value: free == null ? 'Not reported' : _size(free),
+            value: free == null ? 'Not reported' : _formatBytes(free),
           ),
         ],
       ),
@@ -615,6 +686,44 @@ class _Toolbar extends StatelessWidget {
   }
 }
 
+class _FileViews extends StatelessWidget {
+  const _FileViews({required this.controller});
+  final DriveController controller;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: Text('All files (${controller.files.length})'),
+                selected: controller.viewMode == FileViewMode.all,
+                onSelected: (_) => controller.setViewMode(FileViewMode.all),
+              ),
+              ChoiceChip(
+                avatar: const Icon(Icons.content_copy, size: 18),
+                label: Text('Exact duplicates (${controller.exactDuplicateCount})'),
+                selected: controller.viewMode == FileViewMode.exactDuplicates,
+                onSelected: (_) =>
+                    controller.setViewMode(FileViewMode.exactDuplicates),
+              ),
+              ChoiceChip(
+                avatar: const Icon(Icons.difference_outlined, size: 18),
+                label: Text('Same name, different size (${controller.nameConflictCount})'),
+                selected: controller.viewMode == FileViewMode.nameConflicts,
+                onSelected: (_) =>
+                    controller.setViewMode(FileViewMode.nameConflicts),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
 class _FileList extends StatelessWidget {
   const _FileList({required this.controller});
   final DriveController controller;
@@ -722,20 +831,50 @@ class _FileList extends StatelessWidget {
                           onTap: () => _openItem(context, item),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 10),
-                            child: Text(
-                              item.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xff174ea6),
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xff174ea6),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (controller.isExactDuplicate(item))
+                                  const Text(
+                                    'Exact duplicate on another Drive',
+                                    style: TextStyle(
+                                      color: Color(0xffb3261e),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  )
+                                else if (controller.isNameConflict(item))
+                                  const Text(
+                                    'Same name, different size',
+                                    style: TextStyle(
+                                      color: Color(0xff9a5b00),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ),
                       ),
                       Expanded(
                         flex: 3,
-                        child: Text(item.accountEmail, overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          item.accountEmail,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _accountColor(controller, item.accountId),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                       Expanded(child: Text(item.isFolder ? '—' : size(item.size))),
                       Expanded(

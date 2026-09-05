@@ -21,6 +21,7 @@ class DriveController extends ChangeNotifier {
   String webClientId = '';
   String query = '';
   String sort = 'name';
+  FileViewMode viewMode = FileViewMode.all;
   DriveClipboard? clipboard;
   bool loading = false;
   String? error;
@@ -47,10 +48,17 @@ class DriveController extends ChangeNotifier {
 
   List<DriveItem> get visibleFiles {
     final normalized = query.trim().toLowerCase();
-    final result = files
+    final searched = files
         .where((item) =>
             normalized.isEmpty || item.name.toLowerCase().contains(normalized))
         .toList();
+    final result = searched.where((item) {
+      return switch (viewMode) {
+        FileViewMode.all => true,
+        FileViewMode.exactDuplicates => isExactDuplicate(item),
+        FileViewMode.nameConflicts => isNameConflict(item),
+      };
+    }).toList();
     result.sort((a, b) {
       if (a.isFolder != b.isFolder) return a.isFolder ? -1 : 1;
       return switch (sort) {
@@ -63,6 +71,23 @@ class DriveController extends ChangeNotifier {
     });
     return result;
   }
+
+  bool isExactDuplicate(DriveItem item) => files.any((other) =>
+      other.accountId != item.accountId &&
+      other.isFolder == item.isFolder &&
+      other.name.trim().toLowerCase() == item.name.trim().toLowerCase() &&
+      other.size == item.size);
+
+  bool isNameConflict(DriveItem item) => files.any((other) =>
+      other.accountId != item.accountId &&
+      other.isFolder == item.isFolder &&
+      other.name.trim().toLowerCase() == item.name.trim().toLowerCase() &&
+      other.size != item.size);
+
+  int get exactDuplicateCount =>
+      files.where(isExactDuplicate).map((item) => item.name.toLowerCase()).toSet().length;
+  int get nameConflictCount =>
+      files.where(isNameConflict).map((item) => item.name.toLowerCase()).toSet().length;
 
   Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
@@ -184,6 +209,12 @@ class DriveController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setViewMode(FileViewMode value) {
+    viewMode = value;
+    selectedKeys.clear();
+    notifyListeners();
+  }
+
   void setClipboard(ClipboardMode mode) {
     if (selectedItems.isEmpty) return;
     clipboard = DriveClipboard(mode, List.of(selectedItems));
@@ -235,24 +266,28 @@ class DriveController extends ChangeNotifier {
           throw const DriveApiException('Open the destination folder first.');
         }
         for (final item in clip.items) {
-          if (item.isFolder) {
-            throw const DriveApiException(
-              'Recursive folder transfer is not enabled in this milestone.',
-            );
-          }
           final source = accountById(item.accountId)!;
-          if (source.id == destination.id) {
+          if (item.isFolder) {
+            if (source.id == destination.id && clip.mode == ClipboardMode.move) {
+              await api.move(source, item, currentFolderId);
+            } else {
+              await _copyFolderTree(source, destination, item, currentFolderId);
+              if (clip.mode == ClipboardMode.move) {
+                await api.setTrashed(source, item.id, true);
+              }
+            }
+          } else if (source.id == destination.id) {
             clip.mode == ClipboardMode.copy
                 ? await api.copy(source, item, currentFolderId)
                 : await api.move(source, item, currentFolderId);
           } else {
-            final bytes = await api.downloadBytes(source, item);
+            final transfer = await api.downloadForTransfer(source, item);
             await api.uploadBytes(
               destination,
               parentId: currentFolderId,
-              name: item.name,
-              bytes: bytes,
-              mimeType: item.mimeType,
+              name: transfer.name,
+              bytes: transfer.bytes,
+              mimeType: transfer.mimeType,
             );
             if (clip.mode == ClipboardMode.move) {
               await api.setTrashed(source, item.id, true);
@@ -262,6 +297,36 @@ class DriveController extends ChangeNotifier {
         if (clip.mode == ClipboardMode.move) clipboard = null;
         await _loadFiles();
       });
+
+  Future<void> _copyFolderTree(
+    DriveAccount source,
+    DriveAccount destination,
+    DriveItem folder,
+    String destinationParentId,
+  ) async {
+    final newFolderId = await api.createFolder(
+      destination,
+      destinationParentId,
+      folder.name,
+    );
+    final children = await api.listFolder(source, folder.id);
+    for (final child in children) {
+      if (child.isFolder) {
+        await _copyFolderTree(source, destination, child, newFolderId);
+      } else if (source.id == destination.id) {
+        await api.copy(source, child, newFolderId);
+      } else {
+        final transfer = await api.downloadForTransfer(source, child);
+        await api.uploadBytes(
+          destination,
+          parentId: newFolderId,
+          name: transfer.name,
+          bytes: transfer.bytes,
+          mimeType: transfer.mimeType,
+        );
+      }
+    }
+  }
 
   Future<void> _guard(Future<void> Function() action) async {
     loading = true;

@@ -13,6 +13,13 @@ class DriveApiException implements Exception {
   String toString() => message;
 }
 
+class TransferFile {
+  const TransferFile(this.name, this.mimeType, this.bytes);
+  final String name;
+  final String mimeType;
+  final Uint8List bytes;
+}
+
 class GoogleDriveApi {
   GoogleDriveApi({http.Client? client}) : _client = client ?? http.Client();
   final http.Client _client;
@@ -201,5 +208,51 @@ class GoogleDriveApi {
           statusCode: response.statusCode);
     }
     return response.bodyBytes;
+  }
+
+  Future<TransferFile> downloadForTransfer(
+    DriveAccount account,
+    DriveItem item,
+  ) async {
+    const exports = <String, (String, String)>{
+      'application/vnd.google-apps.document': (
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.docx',
+      ),
+      'application/vnd.google-apps.spreadsheet': (
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.xlsx',
+      ),
+      'application/vnd.google-apps.presentation': (
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        '.pptx',
+      ),
+      'application/vnd.google-apps.drawing': ('image/png', '.png'),
+    };
+    final export = exports[item.mimeType];
+    if (export == null) {
+      return TransferFile(
+        item.name,
+        item.mimeType,
+        await downloadBytes(account, item),
+      );
+    }
+    final uri = Uri.parse(
+      '$_api/files/${Uri.encodeComponent(item.id)}/export',
+    ).replace(queryParameters: {'mimeType': export.$1});
+    final response = await _client.get(
+      uri,
+      headers: {'Authorization': 'Bearer ${account.accessToken}'},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw DriveApiException(
+        'Google file export failed (${response.statusCode})',
+        statusCode: response.statusCode,
+      );
+    }
+    final name = item.name.toLowerCase().endsWith(export.$2)
+        ? item.name
+        : '${item.name}${export.$2}';
+    return TransferFile(name, export.$1, response.bodyBytes);
   }
 }
