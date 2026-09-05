@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "19.0.0"
+  #define AppVersion "20.0.0"
 #endif
 
 #ifndef BuildRoot
