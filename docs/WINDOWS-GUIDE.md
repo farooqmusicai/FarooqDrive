@@ -4,7 +4,7 @@ Urdu version: [WINDOWS-GUIDE-URDU.md](WINDOWS-GUIDE-URDU.md)
 
 ## End user
 
-1. Run `FarooqDrive-Setup-v19.0.0-Windows-x64.exe`.
+1. Run `FarooqDrive-Setup-v20.0.0-Windows-x64.exe`.
 2. Open FarooqDrive when installation finishes.
 3. Select **Add Google account** and approve access in the browser.
 4. Repeat the process to connect additional accounts.
