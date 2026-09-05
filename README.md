@@ -18,10 +18,14 @@ database, or signing certificate.
 ## Start here
 
 1. Read [Google OAuth setup](docs/GOOGLE-OAUTH-SETUP.md).
-2. Windows users read [Windows guide](docs/WINDOWS-GUIDE.md).
+2. Windows users read the [English guide](docs/WINDOWS-GUIDE.md) or
+   [Urdu guide](docs/WINDOWS-GUIDE-URDU.md).
 3. Web deployers read [Web guide](docs/WEB-GUIDE.md).
-4. Read [User help](docs/USER-HELP.md) and [Troubleshooting](docs/TROUBLESHOOTING.md).
-5. Review [Privacy](docs/PRIVACY.md) and [Terms of use](docs/TERMS.md).
+4. Read User Help in [English](docs/USER-HELP.md) or
+   [Urdu](docs/USER-HELP-URDU.md), plus [Troubleshooting](docs/TROUBLESHOOTING.md).
+5. Review Privacy in [English](docs/PRIVACY.md) or
+   [Urdu](docs/PRIVACY-URDU.md), and Terms in [English](docs/TERMS.md) or
+   [Urdu](docs/TERMS-URDU.md).
 
 ## Editions
 
