@@ -19,7 +19,10 @@ jobs:
           cache: true
       - name: Create Windows runner
         working-directory: apps/flutter
-        run: flutter create --platforms=windows .
+        shell: pwsh
+        run: |
+          flutter create --platforms=windows .
+          if (Test-Path test/widget_test.dart) { Remove-Item test/widget_test.dart }
       - name: Install packages
         working-directory: apps/flutter
         run: flutter pub get
