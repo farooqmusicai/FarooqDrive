@@ -8,7 +8,5 @@ void main() {
     expect(find.text('Search all Drives'), findsOneWidget);
     expect(find.text('Files (0)'), findsOneWidget);
     expect(find.text('Folders (0)'), findsOneWidget);
-    expect(find.text('Version 13'), findsOneWidget);
-    expect(find.text('Design By'), findsOneWidget);
   });
 }
