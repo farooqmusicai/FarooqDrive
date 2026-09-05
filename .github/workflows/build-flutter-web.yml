@@ -17,6 +17,11 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Restore official icon
+        working-directory: apps/flutter
+        run: |
+          base64 --decode assets/FarooqDrive.png.base64 > assets/FarooqDrive.png
+          cp assets/FarooqDrive.png web/FarooqDrive.png
       - name: Install packages
         working-directory: apps/flutter
         run: flutter pub get
