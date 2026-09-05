@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'google_auth.dart';
 import 'google_drive_api.dart';
@@ -17,6 +18,7 @@ class DriveController extends ChangeNotifier {
   final Map<String, List<FolderCrumb>> paths = {};
 
   String? selectedAccountId;
+  String webClientId = '';
   String query = '';
   String sort = 'name';
   DriveClipboard? clipboard;
@@ -24,6 +26,7 @@ class DriveController extends ChangeNotifier {
   String? error;
 
   bool get allDrives => selectedAccountId == null;
+  bool get hasClientId => webClientId.endsWith('.apps.googleusercontent.com');
   DriveAccount? get selectedAccount => accountById(selectedAccountId);
   List<FolderCrumb> get currentPath => selectedAccountId == null
       ? const []
@@ -61,8 +64,33 @@ class DriveController extends ChangeNotifier {
     return result;
   }
 
+  Future<void> initialize() async {
+    final preferences = await SharedPreferences.getInstance();
+    webClientId = preferences.getString('farooqdrive.webClientId') ?? '';
+    notifyListeners();
+  }
+
+  Future<void> saveClientId(String value) async {
+    final clientId = value.trim();
+    if (!clientId.endsWith('.apps.googleusercontent.com')) {
+      error = 'Enter a valid Google Web Client ID.';
+      notifyListeners();
+      return;
+    }
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('farooqdrive.webClientId', clientId);
+    webClientId = clientId;
+    error = null;
+    notifyListeners();
+  }
+
   Future<void> addAccount() => _guard(() async {
-        final added = await authorizer.addAccount();
+        if (!hasClientId && GoogleAccountAuthorizer.buildClientId.isEmpty) {
+          throw const DriveApiException(
+            'Open Settings and add your Google Web Client ID first.',
+          );
+        }
+        final added = await authorizer.addAccount(webClientId);
         if (added == null) return;
         final index = accounts.indexWhere((item) => item.id == added.id);
         if (index < 0) {

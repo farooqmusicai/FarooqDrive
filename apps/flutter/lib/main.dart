@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'drive_controller.dart';
+import 'google_auth.dart';
 import 'models.dart';
 
 void main() => runApp(const FarooqDriveApp());
@@ -43,6 +44,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
   void initState() {
     super.initState();
     controller.addListener(_changed);
+    controller.initialize();
   }
 
   @override
@@ -111,6 +113,25 @@ class _FileManagerPageState extends State<FileManagerPage> {
       ) ??
       false;
 
+  Future<void> _settings() async {
+    final value = await _ask(
+      'Google Web Client ID',
+      initial: controller.webClientId,
+    );
+    if (value != null && value.isNotEmpty) {
+      await controller.saveClientId(value);
+    }
+  }
+
+  Future<void> _addAccount() async {
+    if (!controller.hasClientId &&
+        GoogleAccountAuthorizer.buildClientId.isEmpty) {
+      await _settings();
+      if (!controller.hasClientId) return;
+    }
+    await controller.addAccount();
+  }
+
   Future<void> _upload() async {
     final result = await FilePicker.platform.pickFiles(withData: true);
     final file = result?.files.single;
@@ -142,12 +163,27 @@ class _FileManagerPageState extends State<FileManagerPage> {
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 850;
     return Scaffold(
-      drawer: compact ? Drawer(child: _Sidebar(controller: controller)) : null,
+      drawer: compact
+          ? Drawer(
+              child: _Sidebar(
+                controller: controller,
+                onAddAccount: _addAccount,
+                onSettings: _settings,
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Row(
           children: [
             if (!compact)
-              SizedBox(width: 270, child: _Sidebar(controller: controller)),
+              SizedBox(
+                width: 270,
+                child: _Sidebar(
+                  controller: controller,
+                  onAddAccount: _addAccount,
+                  onSettings: _settings,
+                ),
+              ),
             Expanded(
               child: Column(
                 children: [
@@ -191,8 +227,14 @@ class _FileManagerPageState extends State<FileManagerPage> {
 }
 
 class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.controller});
+  const _Sidebar({
+    required this.controller,
+    required this.onAddAccount,
+    required this.onSettings,
+  });
   final DriveController controller;
+  final VoidCallback onAddAccount;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -247,9 +289,18 @@ class _Sidebar extends StatelessWidget {
                 ),
               ),
               FilledButton.icon(
-                onPressed: controller.loading ? null : controller.addAccount,
+                onPressed: controller.loading ? null : onAddAccount,
                 icon: const Icon(Icons.add),
                 label: const Text('Add Google account'),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: onSettings,
+                icon: const Icon(Icons.settings, color: Color(0xff9db5d1)),
+                label: const Text(
+                  'Google settings',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),

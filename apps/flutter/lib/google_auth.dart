@@ -10,7 +10,7 @@ class GoogleAccountAuthorizer {
   GoogleAccountAuthorizer({GoogleDriveApi? driveApi})
       : _driveApi = driveApi ?? GoogleDriveApi();
 
-  static const clientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+  static const buildClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
   static const scopes = <String>[
     'openid',
     'email',
@@ -20,7 +20,10 @@ class GoogleAccountAuthorizer {
 
   final GoogleDriveApi _driveApi;
 
-  Future<DriveAccount?> addAccount() async {
+  Future<DriveAccount?> addAccount(String savedClientId) async {
+    final clientId = savedClientId.trim().isNotEmpty
+        ? savedClientId.trim()
+        : buildClientId;
     if (clientId.isEmpty) {
       throw const DriveApiException(
         'This build has no Google Web Client ID. Rebuild with GOOGLE_CLIENT_ID.',
