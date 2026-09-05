@@ -12,6 +12,7 @@ class GoogleAccountAuthorizer {
 
   static const buildClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
   static const clientIdLabel = 'Google Web Client ID';
+  static const requiresClientSecret = false;
   static const missingClientIdMessage =
       'Open Settings and add your Google Web Client ID first.';
   static const scopes = <String>[
@@ -20,12 +21,21 @@ class GoogleAccountAuthorizer {
 
   final GoogleDriveApi _driveApi;
 
-  Future<List<DriveAccount>> restoreAccounts(String savedClientId) async =>
+  Future<String> loadClientSecret() async => '';
+  Future<void> saveClientSecret(String value) async {}
+
+  Future<List<DriveAccount>> restoreAccounts(
+    String savedClientId,
+    String savedClientSecret,
+  ) async =>
       const [];
 
   Future<void> forgetAccount(String accountId) async {}
 
-  Future<DriveAccount?> addAccount(String savedClientId) async {
+  Future<DriveAccount?> addAccount(
+    String savedClientId,
+    String savedClientSecret,
+  ) async {
     final clientId = savedClientId.trim().isNotEmpty
         ? savedClientId.trim()
         : buildClientId;
