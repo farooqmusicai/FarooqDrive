@@ -30,6 +30,11 @@ class DriveController extends ChangeNotifier {
   String? error;
 
   bool get allDrives => selectedAccountId == null;
+  int get totalStorageUsed =>
+      accounts.fold(0, (total, account) => total + account.storageUsed);
+  int? get totalStorageLimit => accounts.every((item) => item.storageLimit != null)
+      ? accounts.fold(0, (total, account) => total + account.storageLimit!)
+      : null;
   bool get hasClientId => webClientId.endsWith('.apps.googleusercontent.com');
   DriveAccount? get selectedAccount => accountById(selectedAccountId);
   List<FolderCrumb> get currentPath => selectedAccountId == null
@@ -277,6 +282,50 @@ class DriveController extends ChangeNotifier {
     if (selectedItems.isEmpty) return;
     clipboard = DriveClipboard(mode, List.of(selectedItems));
     notifyListeners();
+  }
+
+  void setClipboardItem(ClipboardMode mode, DriveItem item) {
+    clipboard = DriveClipboard(mode, [item]);
+    selectedKeys
+      ..clear()
+      ..add(keyOf(item));
+    notifyListeners();
+  }
+
+  void selectOnly(DriveItem item) {
+    selectedKeys
+      ..clear()
+      ..add(keyOf(item));
+    notifyListeners();
+  }
+
+  Future<void> moveItemToDriveRoot(DriveItem item, String accountId) async {
+    setClipboardItem(ClipboardMode.move, item);
+    selectedAccountId = accountId;
+    paths[accountId] = <FolderCrumb>[const FolderCrumb('root', 'My Drive')];
+    await paste();
+  }
+
+  Future<void> pasteIntoFolder(DriveItem folder) async {
+    if (!folder.isFolder || clipboard == null) return;
+    selectedAccountId = folder.accountId;
+    paths[folder.accountId] = <FolderCrumb>[
+      const FolderCrumb('root', 'My Drive'),
+      FolderCrumb(folder.id, folder.name),
+    ];
+    await paste();
+  }
+
+  Future<void> disconnectAccount(String accountId) async {
+    accounts.removeWhere((item) => item.id == accountId);
+    files.removeWhere((item) => item.accountId == accountId);
+    indexedFiles.removeWhere((item) => item.accountId == accountId);
+    paths.remove(accountId);
+    if (selectedAccountId == accountId) selectedAccountId = null;
+    indexReady = false;
+    selectedKeys.clear();
+    notifyListeners();
+    await _loadFiles();
   }
 
   Future<void> createFolder(String name) => _guard(() async {

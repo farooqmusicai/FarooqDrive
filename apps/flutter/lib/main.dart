@@ -272,14 +272,24 @@ class _Sidebar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Row(
+              Row(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: Color(0xff278cff),
-                    child: Text('FD', style: TextStyle(color: Colors.white)),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: Image.network(
+                      'favicon.png',
+                      width: 42,
+                      height: 42,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const CircleAvatar(
+                        backgroundColor: Color(0xff278cff),
+                        child:
+                            Text('FD', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
                   ),
-                  SizedBox(width: 12),
-                  Text(
+                  const SizedBox(width: 12),
+                  const Text(
                     'FarooqDrive',
                     style: TextStyle(
                       color: Colors.white,
@@ -293,6 +303,9 @@ class _Sidebar extends StatelessWidget {
               _DriveTile(
                 title: 'All Drives',
                 subtitle: 'Unified view',
+                quota: controller.totalStorageLimit == null
+                    ? '${_formatBytes(controller.totalStorageUsed)} used'
+                    : '${_formatBytes(controller.totalStorageUsed)} / ${_formatBytes(controller.totalStorageLimit!)} total',
                 selected: controller.allDrives,
                 onTap: () => controller.selectAccount(null),
               ),
@@ -317,6 +330,33 @@ class _Sidebar extends StatelessWidget {
                             selected:
                                 controller.selectedAccountId == account.id,
                             onTap: () => controller.selectAccount(account.id),
+                            onDisconnect: () async {
+                              final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Disconnect Drive?'),
+                                      content: Text(
+                                        'Disconnect ${account.email} from FarooqDrive? Your Google Drive files will not be deleted.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text('Disconnect'),
+                                        ),
+                                      ],
+                                    ),
+                                  ) ??
+                                  false;
+                              if (confirmed) {
+                                await controller.disconnectAccount(account.id);
+                              }
+                            },
                           ))
                       .toList(),
                 ),
@@ -349,6 +389,7 @@ class _DriveTile extends StatelessWidget {
     required this.onTap,
     this.subtitleColor,
     this.quota,
+    this.onDisconnect,
   });
   final String title;
   final String subtitle;
@@ -356,6 +397,7 @@ class _DriveTile extends StatelessWidget {
   final VoidCallback onTap;
   final Color? subtitleColor;
   final String? quota;
+  final VoidCallback? onDisconnect;
 
   @override
   Widget build(BuildContext context) => ListTile(
@@ -382,6 +424,13 @@ class _DriveTile extends StatelessWidget {
               ),
           ],
         ),
+        trailing: onDisconnect == null
+            ? null
+            : IconButton(
+                tooltip: 'Disconnect Drive',
+                onPressed: onDisconnect,
+                icon: const Icon(Icons.link_off, color: Color(0xffff8a80)),
+              ),
         onTap: onTap,
       );
 }
@@ -647,8 +696,8 @@ class _Toolbar extends StatelessWidget {
             onPressed: count > 0
                 ? () => controller.setClipboard(ClipboardMode.move)
                 : null,
-            icon: const Icon(Icons.content_cut),
-            label: const Text('Cut'),
+            icon: const Icon(Icons.drive_file_move_outline),
+            label: const Text('Move'),
           ),
           TextButton.icon(
             onPressed: hasDrive && controller.clipboard != null
@@ -779,6 +828,142 @@ class _FileList extends StatelessWidget {
     }
   }
 
+  Future<void> _downloadItem(DriveItem item) async {
+    if (item.isFolder) return;
+    if (item.mimeType.startsWith('application/vnd.google-apps.')) {
+      final link = item.webViewLink;
+      if (link != null) {
+        await launchUrl(
+          Uri.parse(link),
+          mode: LaunchMode.platformDefault,
+          webOnlyWindowName: '_blank',
+        );
+      }
+      return;
+    }
+    final bytes = await controller.download(item);
+    final dot = item.name.lastIndexOf('.');
+    await FileSaver.instance.saveFile(
+      name: dot > 0 ? item.name.substring(0, dot) : item.name,
+      bytes: bytes,
+      ext: dot > 0 ? item.name.substring(dot + 1) : '',
+      mimeType: MimeType.other,
+      customMimeType: item.mimeType,
+    );
+  }
+
+  Future<void> _renameItem(BuildContext context, DriveItem item) async {
+    final input = TextEditingController(text: item.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename'),
+        content: TextField(controller: input, autofocus: true),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, input.text.trim()),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty || name == item.name) return;
+    controller.selectOnly(item);
+    await controller.renameSelected(name);
+  }
+
+  Future<void> _deleteItem(BuildContext context, DriveItem item) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Move to Trash?'),
+            content: Text('${item.name} will be moved to Google Drive Trash.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Move to Trash'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    controller.selectOnly(item);
+    await controller.trashSelected();
+  }
+
+  Future<void> _moveItem(BuildContext context, DriveItem item) async {
+    final destination = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Move to Drive'),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text('Choose the destination My Drive.'),
+          ),
+          for (final account in controller.accounts)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, account.id),
+              child: Row(
+                children: [
+                  Icon(Icons.cloud, color: _accountColor(controller, account.id)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(account.email)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (destination != null) {
+      await controller.moveItemToDriveRoot(item, destination);
+    }
+  }
+
+  Future<void> _runMenuAction(
+    BuildContext context,
+    DriveItem item,
+    _ItemAction action,
+  ) async {
+    switch (action) {
+      case _ItemAction.open:
+        await _openItem(context, item);
+        return;
+      case _ItemAction.copy:
+        controller.setClipboardItem(ClipboardMode.copy, item);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Copied. Open a destination Drive or folder and press Paste.'),
+          ),
+        );
+        return;
+      case _ItemAction.move:
+        await _moveItem(context, item);
+        return;
+      case _ItemAction.rename:
+        await _renameItem(context, item);
+        return;
+      case _ItemAction.delete:
+        await _deleteItem(context, item);
+        return;
+      case _ItemAction.download:
+        await _downloadItem(item);
+        return;
+      case _ItemAction.paste:
+        await controller.pasteIntoFolder(item);
+        return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final files = controller.visibleFiles;
@@ -882,6 +1067,66 @@ class _FileList extends StatelessWidget {
                           ),
                         ),
                       ),
+                      PopupMenuButton<_ItemAction>(
+                        tooltip: 'File and folder actions',
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (action) =>
+                            _runMenuAction(context, item, action),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: _ItemAction.open,
+                            child: ListTile(
+                              leading: Icon(Icons.open_in_new),
+                              title: Text('Open'),
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: _ItemAction.copy,
+                            child: ListTile(
+                              leading: Icon(Icons.copy_outlined),
+                              title: Text('Copy'),
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: _ItemAction.move,
+                            child: ListTile(
+                              leading: Icon(Icons.drive_file_move_outline),
+                              title: Text('Move to…'),
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: _ItemAction.rename,
+                            child: ListTile(
+                              leading: Icon(Icons.drive_file_rename_outline),
+                              title: Text('Rename'),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _ItemAction.download,
+                            enabled: !item.isFolder,
+                            child: const ListTile(
+                              leading: Icon(Icons.download),
+                              title: Text('Download'),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _ItemAction.paste,
+                            enabled: item.isFolder && controller.clipboard != null,
+                            child: const ListTile(
+                              leading: Icon(Icons.content_paste),
+                              title: Text('Paste into folder'),
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          const PopupMenuItem(
+                            value: _ItemAction.delete,
+                            child: ListTile(
+                              leading: Icon(Icons.delete_outline, color: Colors.red),
+                              title: Text('Move to Trash'),
+                            ),
+                          ),
+                        ],
+                      ),
                       Expanded(
                         flex: 3,
                         child: Text(
@@ -914,11 +1159,6 @@ class _FileList extends StatelessWidget {
                       ),
                     ],
                   ),
-                  trailing: IconButton(
-                    tooltip: 'Open',
-                    icon: const Icon(Icons.open_in_new),
-                    onPressed: () => _openItem(context, item),
-                  ),
                   onTap: () => controller.toggle(
                     item,
                     !controller.selectedKeys.contains(controller.keyOf(item)),
@@ -933,3 +1173,5 @@ class _FileList extends StatelessWidget {
     );
   }
 }
+
+enum _ItemAction { open, copy, move, rename, delete, download, paste }
