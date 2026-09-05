@@ -10,4 +10,17 @@ void main() {
     expect(find.text('Files (0)'), findsOneWidget);
     expect(find.text('Folders (0)'), findsOneWidget);
   });
+
+  testWidgets('remains usable at a compact desktop width', (tester) async {
+    tester.view.physicalSize = const Size(760, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const FarooqDriveApp());
+    await tester.pump();
+
+    expect(find.text('Search all Drives'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
