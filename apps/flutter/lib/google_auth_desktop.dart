@@ -18,6 +18,7 @@ class GoogleAccountAuthorizer {
   static const buildClientId =
       String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID');
   static const clientIdLabel = 'Google Desktop Client ID';
+  static const requiresClientSecret = true;
   static const missingClientIdMessage =
       'Open Settings and add your Google Desktop Client ID first.';
   static const scopes = <String>[
@@ -25,11 +26,23 @@ class GoogleAccountAuthorizer {
   ];
   static const _storage = FlutterSecureStorage();
   static const _accountIndexKey = 'farooqdrive.desktop.accounts';
+  static const _clientSecretKey = 'farooqdrive.desktop.clientSecret';
 
   final GoogleDriveApi _driveApi;
 
-  Future<DriveAccount?> addAccount(String savedClientId) async {
+  Future<String> loadClientSecret() async =>
+      await _storage.read(key: _clientSecretKey) ?? '';
+
+  Future<void> saveClientSecret(String value) async {
+    await _storage.write(key: _clientSecretKey, value: value.trim());
+  }
+
+  Future<DriveAccount?> addAccount(
+    String savedClientId,
+    String savedClientSecret,
+  ) async {
     final clientId = _resolveClientId(savedClientId);
+    final clientSecret = _resolveClientSecret(savedClientSecret);
     final verifier = _randomUrlSafe(64);
     final challenge = base64Url
         .encode(sha256.convert(utf8.encode(verifier)).bytes)
@@ -84,16 +97,24 @@ class GoogleAccountAuthorizer {
     }
     final token = await _exchangeCode(
       clientId: clientId,
+      clientSecret: clientSecret,
       code: code,
       verifier: verifier,
       redirectUri: redirectUri,
     );
-    final account = await _accountFromToken(token, clientId: clientId);
+    final account = await _accountFromToken(
+      token,
+      clientId: clientId,
+      clientSecret: clientSecret,
+    );
     await _saveAccount(account);
     return _driveApi.refreshQuota(account);
   }
 
-  Future<List<DriveAccount>> restoreAccounts(String savedClientId) async {
+  Future<List<DriveAccount>> restoreAccounts(
+    String savedClientId,
+    String savedClientSecret,
+  ) async {
     final rawIndex = await _storage.read(key: _accountIndexKey);
     if (rawIndex == null || rawIndex.isEmpty) return const [];
     final ids = (jsonDecode(rawIndex) as List).cast<String>();
@@ -107,11 +128,20 @@ class GoogleAccountAuthorizer {
         final clientId = (saved['clientId'] as String?)?.trim().isNotEmpty == true
             ? saved['clientId'] as String
             : _resolveClientId(savedClientId);
+        final clientSecret =
+            (saved['clientSecret'] as String?)?.trim().isNotEmpty == true
+                ? saved['clientSecret'] as String
+                : _resolveClientSecret(savedClientSecret);
         if (refreshToken == null || refreshToken.isEmpty) continue;
-        final token = await _refreshToken(clientId, refreshToken);
+        final token = await _refreshToken(
+          clientId,
+          clientSecret,
+          refreshToken,
+        );
         final account = await _accountFromToken(
           token,
           clientId: clientId,
+          clientSecret: clientSecret,
           fallbackRefreshToken: refreshToken,
         );
         await _saveAccount(account);
@@ -141,13 +171,25 @@ class GoogleAccountAuthorizer {
     return clientId;
   }
 
+  String _resolveClientSecret(String savedClientSecret) {
+    final secret = savedClientSecret.trim();
+    if (secret.isEmpty) {
+      throw const DriveApiException(
+        'Open Settings and add your Google Desktop Client Secret first.',
+      );
+    }
+    return secret;
+  }
+
   Future<Map<String, dynamic>> _exchangeCode({
     required String clientId,
+    required String clientSecret,
     required String code,
     required String verifier,
     required String redirectUri,
   }) => _tokenRequest({
         'client_id': clientId,
+        'client_secret': clientSecret,
         'code': code,
         'code_verifier': verifier,
         'redirect_uri': redirectUri,
@@ -156,9 +198,11 @@ class GoogleAccountAuthorizer {
 
   Future<Map<String, dynamic>> _refreshToken(
     String clientId,
+    String clientSecret,
     String refreshToken,
   ) => _tokenRequest({
         'client_id': clientId,
+        'client_secret': clientSecret,
         'refresh_token': refreshToken,
         'grant_type': 'refresh_token',
       });
@@ -181,6 +225,7 @@ class GoogleAccountAuthorizer {
   Future<DriveAccount> _accountFromToken(
     Map<String, dynamic> token, {
     required String clientId,
+    required String clientSecret,
     String? fallbackRefreshToken,
   }) async {
     final accessToken = token['access_token'] as String;
@@ -206,6 +251,7 @@ class GoogleAccountAuthorizer {
         Duration(seconds: (token['expires_in'] as num?)?.toInt() ?? 3600),
       ),
       oauthClientId: clientId,
+      oauthClientSecret: clientSecret,
     );
   }
 
@@ -220,6 +266,7 @@ class GoogleAccountAuthorizer {
         'name': account.name,
         'refreshToken': refreshToken,
         'clientId': account.oauthClientId,
+        'clientSecret': account.oauthClientSecret,
       }),
     );
     final rawIndex = await _storage.read(key: _accountIndexKey);
