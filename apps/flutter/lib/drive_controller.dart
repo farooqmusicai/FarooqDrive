@@ -33,7 +33,10 @@ class DriveController extends ChangeNotifier {
   int get totalStorageUsed =>
       accounts.fold(0, (total, account) => total + account.storageUsed);
   int? get totalStorageLimit => accounts.every((item) => item.storageLimit != null)
-      ? accounts.fold(0, (total, account) => total + account.storageLimit!)
+      ? accounts.fold<int>(
+          0,
+          (total, account) => total + account.storageLimit!,
+        )
       : null;
   bool get hasClientId => webClientId.endsWith('.apps.googleusercontent.com');
   DriveAccount? get selectedAccount => accountById(selectedAccountId);
