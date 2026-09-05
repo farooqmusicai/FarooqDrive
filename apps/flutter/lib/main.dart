@@ -439,7 +439,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 18',
+                          'Version 19',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -665,14 +665,6 @@ class _Header extends StatelessWidget {
                     isLabelVisible: controller.activityLog.isNotEmpty,
                     label: Text('${controller.activityLog.length}'),
                     child: const Icon(Icons.history),
-                  ),
-                ),
-                SizedBox(
-                  width: showMenu ? 200 : 310,
-                  child: SearchBar(
-                    leading: const Icon(Icons.search),
-                    hintText: 'Search all Drives',
-                    onChanged: controller.setQuery,
                   ),
                 ),
               ],
@@ -987,11 +979,8 @@ class _FileViews extends StatelessWidget {
   final DriveController controller;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Wrap(
+  Widget build(BuildContext context) {
+    final tabs = Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
@@ -1036,9 +1025,38 @@ class _FileViews extends StatelessWidget {
                     controller.setViewMode(FileViewMode.nameConflicts),
               ),
             ],
-          ),
-        ),
-      );
+          );
+    final search = SizedBox(
+      width: 310,
+      child: SearchBar(
+        leading: const Icon(Icons.search),
+        hintText: 'Search all Drives',
+        onChanged: controller.setQuery,
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth >= 1120
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: tabs),
+                  const SizedBox(width: 12),
+                  search,
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  tabs,
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerRight, child: search),
+                ],
+              ),
+      ),
+    );
+  }
 }
 
 class _FileList extends StatefulWidget {
