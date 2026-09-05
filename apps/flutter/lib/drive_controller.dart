@@ -150,7 +150,9 @@ class DriveController extends ChangeNotifier {
 
   Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
-    webClientId = preferences.getString('farooqdrive.webClientId') ?? '';
+    webClientId = preferences.getString('farooqdrive.googleClientId') ??
+        preferences.getString('farooqdrive.webClientId') ??
+        '';
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     activityLog
       ..clear()
@@ -158,18 +160,42 @@ class DriveController extends ChangeNotifier {
           .map(ActivityEntry.tryFromJson)
           .whereType<ActivityEntry>()
           .where((entry) => entry.timestamp.isAfter(cutoff)));
+    loading = true;
+    operationMessage = 'Restoring Google accounts…';
     notifyListeners();
+    try {
+      final restored = await authorizer.restoreAccounts(webClientId);
+      accounts
+        ..clear()
+        ..addAll(restored);
+      for (final account in accounts) {
+        paths[account.id] = <FolderCrumb>[
+          const FolderCrumb('root', 'My Drive'),
+        ];
+      }
+      if (accounts.isNotEmpty) {
+        selectedAccountId = accounts.first.id;
+        await _buildGlobalIndex();
+        await _loadFiles();
+      }
+    } catch (exception) {
+      error = 'Saved Google accounts could not be restored: $exception';
+    } finally {
+      loading = false;
+      operationMessage = 'Working…';
+      notifyListeners();
+    }
   }
 
   Future<void> saveClientId(String value) async {
     final clientId = value.trim();
     if (!clientId.endsWith('.apps.googleusercontent.com')) {
-      error = 'Enter a valid Google Web Client ID.';
+      error = 'Enter a valid ${GoogleAccountAuthorizer.clientIdLabel}.';
       notifyListeners();
       return;
     }
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString('farooqdrive.webClientId', clientId);
+    await preferences.setString('farooqdrive.googleClientId', clientId);
     webClientId = clientId;
     error = null;
     notifyListeners();
@@ -178,7 +204,7 @@ class DriveController extends ChangeNotifier {
   Future<void> addAccount() => _guard(() async {
         if (!hasClientId && GoogleAccountAuthorizer.buildClientId.isEmpty) {
           throw const DriveApiException(
-            'Open Settings and add your Google Web Client ID first.',
+            GoogleAccountAuthorizer.missingClientIdMessage,
           );
         }
         final added = await authorizer.addAccount(webClientId);
@@ -449,6 +475,7 @@ class DriveController extends ChangeNotifier {
 
   Future<void> disconnectAccount(String accountId) => _guard(() async {
     final email = accountById(accountId)?.email ?? accountId;
+    await authorizer.forgetAccount(accountId);
     accounts.removeWhere((item) => item.id == accountId);
     files.removeWhere((item) => item.accountId == accountId);
     indexedFiles.removeWhere((item) => item.accountId == accountId);
