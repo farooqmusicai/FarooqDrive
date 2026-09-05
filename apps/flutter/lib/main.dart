@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
@@ -318,7 +319,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                       ),
                       SingleChildScrollView(
                         child: Directionality(
-                          textDirection: TextDirection.rtl,
+                          textDirection: ui.TextDirection.rtl,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
