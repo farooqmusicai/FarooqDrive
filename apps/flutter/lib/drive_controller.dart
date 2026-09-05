@@ -49,7 +49,8 @@ class DriveController extends ChangeNotifier {
   int indexedBytesFor(Iterable<DriveAccount> targetAccounts) {
     final ids = targetAccounts.map((account) => account.id).toSet();
     return indexedFiles
-        .where((item) => ids.contains(item.accountId) && !item.isFolder)
+        .where((item) =>
+            ids.contains(item.accountId) && !item.isFolder && item.ownedByMe)
         .fold(0, (total, item) => total + (item.size ?? 0));
   }
   bool get hasClientId => webClientId.endsWith('.apps.googleusercontent.com');

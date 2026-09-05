@@ -34,6 +34,24 @@ String _formatBytes(int bytes) {
   return '${amount.toStringAsFixed(decimals)} ${units[unit]}';
 }
 
+String _formatCombinedCapacity(Iterable<DriveAccount> accounts) {
+  final limits = accounts
+      .map((account) => account.storageLimit)
+      .whereType<int>()
+      .toList()
+    ..sort((a, b) => b.compareTo(a));
+  if (limits.isEmpty) return 'Not reported';
+  final total = limits.fold<int>(0, (sum, value) => sum + value);
+  if (limits.length == 1) return _formatBytes(total);
+  final largest = limits.first;
+  final remainder = total - largest;
+  const oneTerabyte = 1024 * 1024 * 1024 * 1024;
+  if (largest >= oneTerabyte && remainder > 0 && remainder < oneTerabyte) {
+    return '${_formatBytes(largest)} + ${_formatBytes(remainder)}';
+  }
+  return _formatBytes(total);
+}
+
 void main() => runApp(const FarooqDriveApp());
 
 class FarooqDriveApp extends StatelessWidget {
@@ -279,6 +297,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                   ),
                   if (controller.loading) const LinearProgressIndicator(),
                   _StorageSummary(controller: controller),
+                  _NavigationBar(controller: controller),
                   _Toolbar(
                     controller: controller,
                     onUpload: _upload,
@@ -403,7 +422,7 @@ class _Sidebar extends StatelessWidget {
                 subtitle: 'Unified view',
                 quota: controller.totalStorageLimit == null
                     ? '${_formatBytes(controller.totalStorageUsed)} used'
-                    : '${_formatBytes(controller.totalStorageUsed)} / ${_formatBytes(controller.totalStorageLimit!)} total',
+                    : '${_formatBytes(controller.totalStorageUsed)} / ${_formatCombinedCapacity(controller.accounts)} total',
                 selected: controller.allDrives,
                 onTap: () => controller.selectAccount(null),
               ),
@@ -642,31 +661,69 @@ class _Header extends StatelessWidget {
                       ),
                     ),
             ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                if (controller.allDrives)
-                  const Text('Connected Google Drives')
-                else
-                  Expanded(
-                    child: Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        for (var index = 0;
-                            index < controller.currentPath.length;
-                            index++) ...[
-                          TextButton(
-                            onPressed: () => controller.openCrumb(index),
-                            child: Text(controller.currentPath[index].name),
-                          ),
-                          if (index < controller.currentPath.length - 1)
-                            const Icon(Icons.chevron_right, size: 18),
-                        ],
-                      ],
-                    ),
-                  ),
-              ],
+          ],
+        ),
+      );
+}
+
+class _NavigationBar extends StatelessWidget {
+  const _NavigationBar({required this.controller});
+  final DriveController controller;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xffdce3ed)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: 'Back',
+              onPressed: controller.canGoBack ? controller.goBack : null,
+              icon: const Icon(Icons.arrow_back),
             ),
+            IconButton(
+              tooltip: 'Up one folder',
+              onPressed: controller.canGoUp ? controller.goUp : null,
+              icon: const Icon(Icons.arrow_upward),
+            ),
+            const SizedBox(
+              height: 28,
+              child: VerticalDivider(width: 12),
+            ),
+            if (controller.allDrives)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'All Drives',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              )
+            else
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var index = 0;
+                          index < controller.currentPath.length;
+                          index++) ...[
+                        TextButton(
+                          onPressed: () => controller.openCrumb(index),
+                          child: Text(controller.currentPath[index].name),
+                        ),
+                        if (index < controller.currentPath.length - 1)
+                          const Icon(Icons.chevron_right, size: 18),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       );
@@ -701,7 +758,7 @@ class _StorageSummary extends StatelessWidget {
             value: limit == null
                 ? 'Not reported'
                 : controller.allDrives
-                    ? '${_formatBytes(limit)} · ${accounts.length} Drives'
+                    ? '${_formatCombinedCapacity(accounts)} · ${accounts.length} Drives'
                     : _formatBytes(limit),
           ),
           const SizedBox(width: 10),
@@ -713,7 +770,7 @@ class _StorageSummary extends StatelessWidget {
           const SizedBox(width: 10),
           _StorageCard(
             icon: Icons.calculate_outlined,
-            label: 'Indexed file size',
+            label: 'Owned files indexed',
             value: controller.indexReady
                 ? _formatBytes(indexedBytes)
                 : 'Calculating…',
@@ -805,20 +862,6 @@ class _Toolbar extends StatelessWidget {
         runSpacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          IconButton(
-            tooltip: 'Back',
-            onPressed: controller.canGoBack ? controller.goBack : null,
-            icon: const Icon(Icons.arrow_back),
-          ),
-          IconButton(
-            tooltip: 'Up one folder',
-            onPressed: controller.canGoUp ? controller.goUp : null,
-            icon: const Icon(Icons.arrow_upward),
-          ),
-          const SizedBox(
-            height: 28,
-            child: VerticalDivider(width: 8),
-          ),
           FilledButton.tonalIcon(
             onPressed: hasDrive ? onNewFolder : null,
             icon: const Icon(Icons.create_new_folder_outlined),

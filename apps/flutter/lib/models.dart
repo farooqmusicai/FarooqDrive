@@ -42,6 +42,7 @@ class DriveItem {
     this.webViewLink,
     this.parents = const [],
     this.canDownload = true,
+    this.ownedByMe = false,
     this.location = 'My Drive',
   });
 
@@ -55,6 +56,7 @@ class DriveItem {
   final String? webViewLink;
   final List<String> parents;
   final bool canDownload;
+  final bool ownedByMe;
   final String location;
 
   bool get isFolder => mimeType == googleFolderMime;
@@ -70,6 +72,7 @@ class DriveItem {
         webViewLink: webViewLink,
         parents: parents,
         canDownload: canDownload,
+        ownedByMe: ownedByMe,
         location: value,
       );
 
@@ -89,6 +92,7 @@ class DriveItem {
         parents: (json['parents'] as List?)?.cast<String>() ?? const [],
         canDownload:
             (json['capabilities'] as Map?)?['canDownload'] as bool? ?? true,
+        ownedByMe: json['ownedByMe'] as bool? ?? false,
       );
 }
 

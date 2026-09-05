@@ -65,7 +65,7 @@ class GoogleDriveApi {
         'pageSize': '1000',
         'orderBy': 'folder,name_natural',
         'fields':
-            'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,capabilities(canDownload))',
+            'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,ownedByMe,capabilities(canDownload))',
         if (pageToken != null) 'pageToken': pageToken,
       };
       final uri = Uri.parse('$_api/files').replace(queryParameters: query);
@@ -87,7 +87,7 @@ class GoogleDriveApi {
         'spaces': 'drive',
         'pageSize': '1000',
         'fields':
-            'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,capabilities(canDownload))',
+            'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,ownedByMe,capabilities(canDownload))',
         if (pageToken != null) 'pageToken': pageToken,
       };
       final uri = Uri.parse('$_api/files').replace(queryParameters: query);
