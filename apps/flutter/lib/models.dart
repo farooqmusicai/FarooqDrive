@@ -124,7 +124,7 @@ class FolderCrumb {
 
 enum ClipboardMode { copy, move }
 
-enum FileViewMode { files, folders, exactDuplicates, nameConflicts }
+enum FileViewMode { all, files, folders, exactDuplicates, nameConflicts }
 
 class DriveClipboard {
   const DriveClipboard(this.mode, this.items);
