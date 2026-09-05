@@ -21,6 +21,7 @@ database, or signing certificate.
 2. Windows users read [Windows guide](docs/WINDOWS-GUIDE.md).
 3. Web deployers read [Web guide](docs/WEB-GUIDE.md).
 4. Read [User help](docs/USER-HELP.md) and [Troubleshooting](docs/TROUBLESHOOTING.md).
+5. Review [Privacy](docs/PRIVACY.md) and [Terms of use](docs/TERMS.md).
 
 ## Editions
 
@@ -37,7 +38,7 @@ database, or signing certificate.
 
 ## Status
 
-Version 1.1.2 is a release candidate until Google OAuth is verified with the
+Version 19 is a release candidate until Google OAuth is verified with the
 owner's production domains and the Windows installer is tested on clean Windows
 11 and Windows 10 machines.
 
