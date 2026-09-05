@@ -31,10 +31,11 @@ flutter run -d windows \
   --dart-define=GOOGLE_DESKTOP_CLIENT_ID=YOUR_DESKTOP_CLIENT_ID.apps.googleusercontent.com
 ```
 
-The Client ID can instead be entered in FarooqDrive Settings. Never add a
-Desktop Client Secret: the app uses the system browser, a loopback callback,
-and PKCE. Windows refresh tokens are stored in the operating system's secure
-credential storage so connected accounts can be restored on restart.
+The Desktop Client ID and matching Desktop Client Secret can instead be entered
+in FarooqDrive Settings. They are never committed to the public repository;
+the secret and refresh tokens are stored in the operating system's secure
+credential storage. The app uses the system browser, a loopback callback, and
+PKCE, and connected accounts can be restored on restart.
 
 ## Current milestone
 
