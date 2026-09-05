@@ -7,6 +7,9 @@ class DriveAccount {
     required this.name,
     required this.accessToken,
     this.photoUrl,
+    this.refreshToken,
+    this.tokenExpiry,
+    this.oauthClientId,
     this.storageUsed = 0,
     this.storageLimit,
   });
@@ -16,15 +19,28 @@ class DriveAccount {
   final String name;
   final String accessToken;
   final String? photoUrl;
+  final String? refreshToken;
+  final DateTime? tokenExpiry;
+  final String? oauthClientId;
   final int storageUsed;
   final int? storageLimit;
 
-  DriveAccount copyWith({int? storageUsed, int? storageLimit}) => DriveAccount(
+  DriveAccount copyWith({
+    String? accessToken,
+    String? refreshToken,
+    DateTime? tokenExpiry,
+    String? oauthClientId,
+    int? storageUsed,
+    int? storageLimit,
+  }) => DriveAccount(
         id: id,
         email: email,
         name: name,
-        accessToken: accessToken,
+        accessToken: accessToken ?? this.accessToken,
         photoUrl: photoUrl,
+        refreshToken: refreshToken ?? this.refreshToken,
+        tokenExpiry: tokenExpiry ?? this.tokenExpiry,
+        oauthClientId: oauthClientId ?? this.oauthClientId,
         storageUsed: storageUsed ?? this.storageUsed,
         storageLimit: storageLimit ?? this.storageLimit,
       );
