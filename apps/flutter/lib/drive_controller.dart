@@ -83,15 +83,15 @@ class DriveController extends ChangeNotifier {
     return selectedKeys.map((key) => available[key]).whereType<DriveItem>().toList();
   }
 
-  List<DriveItem> get visibleFiles {
+  List<DriveItem> matchingItemsFor(FileViewMode mode) {
     final normalized = query
         .trim()
         .toLowerCase()
         .replaceAll(RegExp(r'[*?]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ');
     final searchTerms = normalized.split(' ').where((item) => item.isNotEmpty);
-    final duplicateView = viewMode == FileViewMode.exactDuplicates ||
-        viewMode == FileViewMode.nameConflicts;
+    final duplicateView = mode == FileViewMode.exactDuplicates ||
+        mode == FileViewMode.nameConflicts;
     final useGlobalIndex = duplicateView ||
         (normalized.isNotEmpty && indexReady);
     final source = useGlobalIndex ? indexedFiles : files;
@@ -108,7 +108,7 @@ class DriveController extends ChangeNotifier {
       return searchTerms.every(searchable.contains);
     }).toList();
     final result = searched.where((item) {
-      return switch (viewMode) {
+      return switch (mode) {
         FileViewMode.all => true,
         FileViewMode.files => !item.isFolder,
         FileViewMode.folders => item.isFolder,
@@ -129,6 +129,8 @@ class DriveController extends ChangeNotifier {
     return result;
   }
 
+  List<DriveItem> get visibleFiles => matchingItemsFor(viewMode);
+
   bool isExactDuplicate(DriveItem item) => !item.isFolder &&
       item.size != null &&
       indexedFiles.any((other) =>
@@ -147,12 +149,12 @@ class DriveController extends ChangeNotifier {
       (other.size != item.size || item.size == null || other.size == null));
 
   int get exactDuplicateCount =>
-      indexedFiles.where(isExactDuplicate).map((item) => item.name.toLowerCase()).toSet().length;
+      matchingItemsFor(FileViewMode.exactDuplicates).length;
   int get nameConflictCount =>
-      indexedFiles.where(isNameConflict).map((item) => item.name.toLowerCase()).toSet().length;
-  int get fileCount => files.where((item) => !item.isFolder).length;
-  int get folderCount => files.where((item) => item.isFolder).length;
-  int get allItemCount => files.length;
+      matchingItemsFor(FileViewMode.nameConflicts).length;
+  int get fileCount => matchingItemsFor(FileViewMode.files).length;
+  int get folderCount => matchingItemsFor(FileViewMode.folders).length;
+  int get allItemCount => matchingItemsFor(FileViewMode.all).length;
 
   Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
