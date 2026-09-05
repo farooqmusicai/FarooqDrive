@@ -28,7 +28,7 @@ class DriveController extends ChangeNotifier {
   String desktopClientSecret = '';
   String query = '';
   String sort = 'name';
-  FileViewMode viewMode = FileViewMode.folders;
+  FileViewMode viewMode = FileViewMode.all;
   DriveClipboard? clipboard;
   bool loading = false;
   bool indexing = false;
@@ -109,6 +109,7 @@ class DriveController extends ChangeNotifier {
     }).toList();
     final result = searched.where((item) {
       return switch (viewMode) {
+        FileViewMode.all => true,
         FileViewMode.files => !item.isFolder,
         FileViewMode.folders => item.isFolder,
         FileViewMode.exactDuplicates => isExactDuplicate(item),
@@ -151,6 +152,7 @@ class DriveController extends ChangeNotifier {
       indexedFiles.where(isNameConflict).map((item) => item.name.toLowerCase()).toSet().length;
   int get fileCount => files.where((item) => !item.isFolder).length;
   int get folderCount => files.where((item) => item.isFolder).length;
+  int get allItemCount => files.length;
 
   Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
@@ -306,9 +308,16 @@ class DriveController extends ChangeNotifier {
               .id;
       return api.listFolder(account, folder);
     }));
-    files
-      ..clear()
-      ..addAll(groups.expand((group) => group));
+    files.clear();
+    for (var index = 0; index < groups.length; index++) {
+      final account = targets[index];
+      final location = allDrives
+          ? 'My Drive'
+          : (paths[account.id] ?? const [FolderCrumb('root', 'My Drive')])
+              .map((crumb) => crumb.name)
+              .join(' / ');
+      files.addAll(groups[index].map((item) => item.copyWithLocation(location)));
+    }
     selectedKeys.clear();
   }
 
