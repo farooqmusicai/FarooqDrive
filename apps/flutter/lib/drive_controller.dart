@@ -100,7 +100,7 @@ class DriveController extends ChangeNotifier {
         }
         paths.putIfAbsent(
           added.id,
-          () => const [FolderCrumb('root', 'My Drive')],
+          () => <FolderCrumb>[const FolderCrumb('root', 'My Drive')],
         );
         selectedAccountId = added.id;
         await _loadFiles();
@@ -111,7 +111,7 @@ class DriveController extends ChangeNotifier {
         if (id != null) {
           paths.putIfAbsent(
             id,
-            () => const [FolderCrumb('root', 'My Drive')],
+            () => <FolderCrumb>[const FolderCrumb('root', 'My Drive')],
           );
         }
         await _loadFiles();
@@ -143,7 +143,7 @@ class DriveController extends ChangeNotifier {
         selectedAccountId = item.accountId;
         final path = paths.putIfAbsent(
           item.accountId,
-          () => const [FolderCrumb('root', 'My Drive')],
+          () => <FolderCrumb>[const FolderCrumb('root', 'My Drive')],
         );
         path.add(FolderCrumb(item.id, item.name));
         await _loadFiles();

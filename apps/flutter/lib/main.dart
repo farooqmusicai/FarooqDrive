@@ -189,6 +189,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                 children: [
                   _Header(controller: controller, showMenu: compact),
                   if (controller.loading) const LinearProgressIndicator(),
+                  _StorageSummary(controller: controller),
                   _Toolbar(
                     controller: controller,
                     onUpload: _upload,
@@ -413,6 +414,104 @@ class _Header extends StatelessWidget {
       );
 }
 
+class _StorageSummary extends StatelessWidget {
+  const _StorageSummary({required this.controller});
+  final DriveController controller;
+
+  static String _size(int bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var amount = bytes.toDouble();
+    var unit = 0;
+    while (amount >= 1024 && unit < units.length - 1) {
+      amount /= 1024;
+      unit++;
+    }
+    return '${unit == 0 ? amount.toStringAsFixed(0) : amount.toStringAsFixed(1)} ${units[unit]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accounts = controller.allDrives
+        ? controller.accounts
+        : [if (controller.selectedAccount != null) controller.selectedAccount!];
+    if (accounts.isEmpty) return const SizedBox.shrink();
+
+    final used = accounts.fold<int>(0, (total, item) => total + item.storageUsed);
+    final limitsKnown = accounts.every((item) => item.storageLimit != null);
+    final limit = limitsKnown
+        ? accounts.fold<int>(0, (total, item) => total + item.storageLimit!)
+        : null;
+    final free = limit == null ? null : (limit - used).clamp(0, limit);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Row(
+        children: [
+          _StorageCard(
+            icon: Icons.cloud_outlined,
+            label: controller.allDrives ? 'Total storage' : 'Drive storage',
+            value: limit == null ? 'Not reported' : _size(limit),
+          ),
+          const SizedBox(width: 10),
+          _StorageCard(
+            icon: Icons.data_usage,
+            label: 'Used',
+            value: _size(used),
+          ),
+          const SizedBox(width: 10),
+          _StorageCard(
+            icon: Icons.cloud_done_outlined,
+            label: 'Free',
+            value: free == null ? 'Not reported' : _size(free),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StorageCard extends StatelessWidget {
+  const _StorageCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xffdce3ed)),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: const Color(0xff0b67d1)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12)),
+                    Text(value,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
 class _Toolbar extends StatelessWidget {
   const _Toolbar({
     required this.controller,
@@ -532,6 +631,32 @@ class _FileList extends StatelessWidget {
     return '${unit == 0 ? amount.toStringAsFixed(0) : amount.toStringAsFixed(1)} ${units[unit]}';
   }
 
+  Future<void> _openItem(BuildContext context, DriveItem item) async {
+    if (item.isFolder) {
+      await controller.openFolder(item);
+      return;
+    }
+    final link = item.webViewLink;
+    if (link == null || link.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google Drive did not provide an open link.')),
+        );
+      }
+      return;
+    }
+    final opened = await launchUrl(
+      Uri.parse(link),
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The file could not be opened. Allow pop-ups and try again.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final files = controller.visibleFiles;
@@ -591,7 +716,23 @@ class _FileList extends StatelessWidget {
                               ? const Color(0xffffb526)
                               : const Color(0xff5f748d)),
                       const SizedBox(width: 10),
-                      Expanded(flex: 4, child: Text(item.name, overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        flex: 4,
+                        child: InkWell(
+                          onTap: () => _openItem(context, item),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(
+                              item.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xff174ea6),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                       Expanded(
                         flex: 3,
                         child: Text(item.accountEmail, overflow: TextOverflow.ellipsis),
@@ -608,19 +749,13 @@ class _FileList extends StatelessWidget {
                   trailing: IconButton(
                     tooltip: 'Open',
                     icon: const Icon(Icons.open_in_new),
-                    onPressed: () async {
-                      if (item.isFolder) {
-                        await controller.openFolder(item);
-                      } else if (item.webViewLink != null) {
-                        await launchUrl(Uri.parse(item.webViewLink!));
-                      }
-                    },
+                    onPressed: () => _openItem(context, item),
                   ),
                   onTap: () => controller.toggle(
                     item,
                     !controller.selectedKeys.contains(controller.keyOf(item)),
                   ),
-                  onLongPress: () => controller.openFolder(item),
+                  onLongPress: () => _openItem(context, item),
                 ),
                 const Divider(height: 1),
               ],
