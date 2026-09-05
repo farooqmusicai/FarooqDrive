@@ -439,7 +439,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 16',
+                          'Version 17',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -1035,9 +1035,52 @@ class _FileViews extends StatelessWidget {
       );
 }
 
-class _FileList extends StatelessWidget {
+class _FileList extends StatefulWidget {
   const _FileList({required this.controller});
   final DriveController controller;
+
+  @override
+  State<_FileList> createState() => _FileListState();
+}
+
+class _FileListState extends State<_FileList> {
+  DriveController get controller => widget.controller;
+  final ScrollController _horizontalScroll = ScrollController();
+
+  double nameWidth = 470;
+  double accountWidth = 300;
+  double locationWidth = 320;
+  double sizeWidth = 120;
+  double modifiedWidth = 220;
+
+  @override
+  void dispose() {
+    _horizontalScroll.dispose();
+    super.dispose();
+  }
+
+  Widget _header(String label, double width, ValueChanged<double> resize) =>
+      SizedBox(
+        width: width,
+        child: Row(
+          children: [
+            Expanded(child: Text(label)),
+            MouseRegion(
+              cursor: SystemMouseCursors.resizeColumn,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragUpdate: (details) =>
+                    setState(() => resize(details.delta.dx)),
+                child: const SizedBox(
+                  width: 12,
+                  height: 36,
+                  child: VerticalDivider(width: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   static String size(int? bytes) {
     if (bytes == null) return '—';
@@ -1249,12 +1292,36 @@ class _FileList extends StatelessWidget {
     }
     final allSelected =
         files.every((item) => controller.selectedKeys.contains(controller.keyOf(item)));
+    final showLocation =
+        controller.viewMode == FileViewMode.exactDuplicates ||
+            controller.viewMode == FileViewMode.nameConflicts;
+    final requiredWidth = nameWidth +
+        accountWidth +
+        (showLocation ? locationWidth : 0) +
+        sizeWidth +
+        modifiedWidth +
+        72;
     return Card(
       margin: const EdgeInsets.all(20),
       elevation: 0,
       clipBehavior: Clip.antiAlias,
-      child: ListView(
-        children: [
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tableWidth = requiredWidth > constraints.maxWidth
+              ? requiredWidth
+              : constraints.maxWidth;
+          return Scrollbar(
+            controller: _horizontalScroll,
+            thumbVisibility: true,
+            notificationPredicate: (notification) => notification.depth == 1,
+            child: SingleChildScrollView(
+              controller: _horizontalScroll,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: tableWidth,
+                height: constraints.maxHeight,
+                child: ListView(
+                  children: [
           Container(
             color: const Color(0xffeef3f9),
             child: ListTile(
@@ -1264,13 +1331,26 @@ class _FileList extends StatelessWidget {
               ),
               title: Row(
                 children: [
-                  const Expanded(flex: 4, child: Text('Name')),
-                  const Expanded(flex: 3, child: Text('Account')),
+                  _header('Name', nameWidth, (delta) {
+                    nameWidth = (nameWidth + delta).clamp(220, 900).toDouble();
+                  }),
+                  _header('Account', accountWidth, (delta) {
+                    accountWidth =
+                        (accountWidth + delta).clamp(180, 600).toDouble();
+                  }),
                   if (controller.viewMode == FileViewMode.exactDuplicates ||
                       controller.viewMode == FileViewMode.nameConflicts)
-                    const Expanded(flex: 3, child: Text('Location')),
-                  const Expanded(child: Text('Size')),
-                  const Expanded(flex: 2, child: Text('Modified')),
+                    _header('Location', locationWidth, (delta) {
+                      locationWidth =
+                          (locationWidth + delta).clamp(200, 900).toDouble();
+                    }),
+                  _header('Size', sizeWidth, (delta) {
+                    sizeWidth = (sizeWidth + delta).clamp(90, 260).toDouble();
+                  }),
+                  _header('Modified', modifiedWidth, (delta) {
+                    modifiedWidth =
+                        (modifiedWidth + delta).clamp(150, 420).toDouble();
+                  }),
                 ],
               ),
             ),
@@ -1291,23 +1371,26 @@ class _FileList extends StatelessWidget {
                         size: 22,
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        flex: 4,
-                        child: InkWell(
-                          onTap: () => _openItem(context, item),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xff174ea6),
-                                    fontWeight: FontWeight.w600,
+                      SizedBox(
+                        width: nameWidth - 80,
+                        child: Tooltip(
+                          message: '${item.location} / ${item.name}',
+                          waitDuration: const Duration(milliseconds: 350),
+                          child: InkWell(
+                            onTap: () => _openItem(context, item),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.name,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xff174ea6),
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
                                 if (controller.isExactDuplicate(item))
                                   const Text(
                                     'Exact duplicate on another Drive',
@@ -1326,7 +1409,8 @@ class _FileList extends StatelessWidget {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1398,23 +1482,28 @@ class _FileList extends StatelessWidget {
                           ),
                         ],
                       ),
-                      Expanded(
-                        flex: 3,
-                        child: Text(
-                          item.accountEmail,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: _accountColor(controller, item.accountId),
-                            fontWeight: FontWeight.w800,
+                      SizedBox(
+                        width: accountWidth,
+                        child: Tooltip(
+                          message: item.accountEmail,
+                          waitDuration: const Duration(milliseconds: 350),
+                          child: Text(
+                            item.accountEmail,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _accountColor(controller, item.accountId),
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ),
                       if (controller.viewMode == FileViewMode.exactDuplicates ||
                           controller.viewMode == FileViewMode.nameConflicts)
-                        Expanded(
-                          flex: 3,
+                        SizedBox(
+                          width: locationWidth,
                           child: Tooltip(
-                            message: item.location,
+                            message: '${item.location} / ${item.name}',
+                            waitDuration: const Duration(milliseconds: 350),
                             child: Text(
                               item.location,
                               overflow: TextOverflow.ellipsis,
@@ -1422,12 +1511,23 @@ class _FileList extends StatelessWidget {
                             ),
                           ),
                         ),
-                      Expanded(child: Text(size(controller.sizeOf(item)))),
-                      Expanded(
-                        flex: 2,
-                        child: Text(item.modifiedTime == null
-                            ? '—'
-                            : DateFormat.yMMMd().add_jm().format(item.modifiedTime!.toLocal())),
+                      SizedBox(
+                        width: sizeWidth,
+                        child: Tooltip(
+                          message: size(controller.sizeOf(item)),
+                          child: Text(size(controller.sizeOf(item))),
+                        ),
+                      ),
+                      SizedBox(
+                        width: modifiedWidth,
+                        child: Tooltip(
+                          message: item.modifiedTime == null
+                              ? '—'
+                              : DateFormat.yMMMd().add_jms().format(item.modifiedTime!.toLocal()),
+                          child: Text(item.modifiedTime == null
+                              ? '—'
+                              : DateFormat.yMMMd().add_jm().format(item.modifiedTime!.toLocal())),
+                        ),
                       ),
                     ],
                   ),
@@ -1440,7 +1540,12 @@ class _FileList extends StatelessWidget {
                 const Divider(height: 1),
               ],
             ),
-        ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
