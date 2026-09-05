@@ -24,6 +24,24 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_test:
     sdk: flutter
+  msix: ^3.18.0
 
 flutter:
   uses-material-design: true
+
+# Microsoft Store package (MSIX). Identity values come from Partner Center
+# (product 9P9917XBRZ5M). The Store signs the package; no certificate is used.
+# Build order: flutter build windows --release ... then: dart run msix:create --store
+msix_config:
+  display_name: FarooqDrive
+  publisher_display_name: Mohammad Farooq
+  identity_name: MohammadFarooq.FarooqDrive
+  publisher: CN=88632D82-E648-416A-A69B-DD8EADB81121
+  msix_version: 19.0.0.0
+  logo_path: assets/FarooqDrive.png
+  capabilities: internetClient
+  languages: en-us
+  store: true
+  build_windows: false
+  output_path: release
+  output_name: FarooqDrive-Store-v19.0.0
