@@ -1,5 +1,7 @@
 # Privacy
 
+Urdu version: [PRIVACY-URDU.md](PRIVACY-URDU.md)
+
 FarooqDrive does not operate an intermediate file-storage service. Files are
 transferred between the user's device/browser and Google Drive. The Windows
 edition keeps configuration, encrypted tokens, and file index data locally. The
