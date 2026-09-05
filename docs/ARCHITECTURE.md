@@ -4,7 +4,8 @@
 
 Flutter Windows UI → system browser OAuth with PKCE → temporary loopback
 callback → Google Drive REST API. The operating system's secure credential
-storage protects refresh tokens. No Client Secret is bundled in the app.
+storage protects the user-entered Client Secret and refresh tokens. No personal
+credential is committed to the public repository or bundled in public builds.
 
 ## Web
 
