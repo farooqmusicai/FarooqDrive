@@ -185,6 +185,63 @@ class _FileManagerPageState extends State<FileManagerPage> {
     }
   }
 
+  Future<void> _showActivityLog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.history),
+            SizedBox(width: 10),
+            Text('Activity — last 7 days'),
+          ],
+        ),
+        content: SizedBox(
+          width: 680,
+          height: 500,
+          child: controller.activityLog.isEmpty
+              ? const Center(child: Text('No activity recorded yet.'))
+              : ListView.separated(
+                  itemCount: controller.activityLog.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final entry = controller.activityLog[index];
+                    return ListTile(
+                      leading: const Icon(Icons.schedule),
+                      title: Text(entry.action),
+                      subtitle: Text([
+                        entry.details,
+                        if (entry.accountEmail != null) entry.accountEmail!,
+                      ].join('\n')),
+                      trailing: Text(
+                        DateFormat.MMMd().add_jm().format(entry.timestamp),
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: controller.activityLog.isEmpty
+                ? null
+                : () async {
+                    await controller.clearActivityLog();
+                    if (context.mounted) Navigator.pop(context);
+                  },
+            icon: const Icon(Icons.delete_sweep_outlined),
+            label: const Text('Clear history'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 850;
@@ -215,7 +272,11 @@ class _FileManagerPageState extends State<FileManagerPage> {
             Expanded(
               child: Column(
                 children: [
-                  _Header(controller: controller, showMenu: compact),
+                  _Header(
+                    controller: controller,
+                    showMenu: compact,
+                    onActivity: _showActivityLog,
+                  ),
                   if (controller.loading) const LinearProgressIndicator(),
                   _StorageSummary(controller: controller),
                   _Toolbar(
@@ -403,37 +464,35 @@ class _Sidebar extends StatelessWidget {
                 icon: const Icon(Icons.add),
                 label: const Text('Add Google account'),
               ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: onSettings,
-                icon: const Icon(Icons.settings, color: Color(0xff9db5d1)),
-                label: const Text(
-                  'Google settings',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse('https://www.mymandoob.com/farooqdrive/'),
-                  mode: LaunchMode.platformDefault,
-                  webOnlyWindowName: '_blank',
-                ),
-                icon: const Icon(Icons.language, color: Color(0xff9db5d1)),
-                label: const Text(
-                  'FarooqDrive',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse('mailto:support@mymandoob.com'),
-                ),
-                icon: const Icon(Icons.support_agent, color: Color(0xff9db5d1)),
-                label: const Text(
-                  'Support: support@mymandoob.com',
-                  style: TextStyle(color: Colors.white, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    tooltip: 'Google settings',
+                    onPressed: onSettings,
+                    icon: const Icon(Icons.settings, color: Color(0xff9db5d1)),
+                  ),
+                  IconButton(
+                    tooltip: 'FarooqDrive website',
+                    onPressed: () => launchUrl(
+                      Uri.parse('https://www.mymandoob.com/farooqdrive/'),
+                      mode: LaunchMode.platformDefault,
+                      webOnlyWindowName: '_blank',
+                    ),
+                    icon: const Icon(Icons.language, color: Color(0xff9db5d1)),
+                  ),
+                  IconButton(
+                    tooltip: 'Contact support: support@mymandoob.com',
+                    onPressed: () => launchUrl(
+                      Uri.parse('mailto:support@mymandoob.com'),
+                    ),
+                    icon: const Icon(
+                      Icons.support_agent,
+                      color: Color(0xff9db5d1),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -496,9 +555,14 @@ class _DriveTile extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.controller, required this.showMenu});
+  const _Header({
+    required this.controller,
+    required this.showMenu,
+    required this.onActivity,
+  });
   final DriveController controller;
   final bool showMenu;
+  final VoidCallback onActivity;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -525,13 +589,20 @@ class _Header extends StatelessWidget {
                         ),
                   ),
                 ),
+                IconButton(
+                  tooltip: 'Activity — last 7 days',
+                  onPressed: onActivity,
+                  icon: Badge(
+                    isLabelVisible: controller.activityLog.isNotEmpty,
+                    label: Text('${controller.activityLog.length}'),
+                    child: const Icon(Icons.history),
+                  ),
+                ),
                 SizedBox(
                   width: showMenu ? 200 : 310,
                   child: SearchBar(
                     leading: const Icon(Icons.search),
-                    hintText: controller.allDrives
-                        ? 'Search all Drives'
-                        : 'Search this folder',
+                    hintText: 'Search all Drives',
                     onChanged: controller.setQuery,
                   ),
                 ),
@@ -574,13 +645,6 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                IconButton(
-                  tooltip: 'Up',
-                  onPressed: controller.currentPath.length > 1
-                      ? controller.goUp
-                      : null,
-                  icon: const Icon(Icons.arrow_upward),
-                ),
                 if (controller.allDrives)
                   const Text('Connected Google Drives')
                 else
@@ -625,6 +689,7 @@ class _StorageSummary extends StatelessWidget {
         ? accounts.fold<int>(0, (total, item) => total + item.storageLimit!)
         : null;
     final free = limit == null ? null : (limit - used).clamp(0, limit);
+    final indexedBytes = controller.indexedBytesFor(accounts);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -632,7 +697,7 @@ class _StorageSummary extends StatelessWidget {
         children: [
           _StorageCard(
             icon: Icons.cloud_outlined,
-            label: controller.allDrives ? 'Total storage' : 'Drive storage',
+            label: controller.allDrives ? 'Total capacity' : 'Drive capacity',
             value: limit == null
                 ? 'Not reported'
                 : controller.allDrives
@@ -642,8 +707,16 @@ class _StorageSummary extends StatelessWidget {
           const SizedBox(width: 10),
           _StorageCard(
             icon: Icons.data_usage,
-            label: 'Used',
+            label: 'Google Drive used',
             value: _formatBytes(used),
+          ),
+          const SizedBox(width: 10),
+          _StorageCard(
+            icon: Icons.calculate_outlined,
+            label: 'Indexed file size',
+            value: controller.indexReady
+                ? _formatBytes(indexedBytes)
+                : 'Calculating…',
           ),
           const SizedBox(width: 10),
           _StorageCard(
@@ -732,6 +805,20 @@ class _Toolbar extends StatelessWidget {
         runSpacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          IconButton(
+            tooltip: 'Back',
+            onPressed: controller.canGoBack ? controller.goBack : null,
+            icon: const Icon(Icons.arrow_back),
+          ),
+          IconButton(
+            tooltip: 'Up one folder',
+            onPressed: controller.canGoUp ? controller.goUp : null,
+            icon: const Icon(Icons.arrow_upward),
+          ),
+          const SizedBox(
+            height: 28,
+            child: VerticalDivider(width: 8),
+          ),
           FilledButton.tonalIcon(
             onPressed: hasDrive ? onNewFolder : null,
             icon: const Icon(Icons.create_new_folder_outlined),
@@ -883,6 +970,7 @@ class _FileList extends StatelessWidget {
       mode: LaunchMode.platformDefault,
       webOnlyWindowName: '_blank',
     );
+    if (opened) await controller.recordFileOpened(item);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The file could not be opened. Allow pop-ups and try again.')),

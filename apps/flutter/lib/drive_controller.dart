@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,6 +20,8 @@ class DriveController extends ChangeNotifier {
   final Set<String> selectedKeys = {};
   final Map<String, List<FolderCrumb>> paths = {};
   final Map<String, int> folderSizes = {};
+  final List<ActivityEntry> activityLog = [];
+  final List<_NavigationState> _navigationHistory = [];
 
   String? selectedAccountId;
   String webClientId = '';
@@ -32,6 +36,8 @@ class DriveController extends ChangeNotifier {
   String operationMessage = 'Working…';
 
   bool get allDrives => selectedAccountId == null;
+  bool get canGoBack => _navigationHistory.isNotEmpty;
+  bool get canGoUp => selectedAccountId != null && currentPath.length > 1;
   int get totalStorageUsed =>
       accounts.fold(0, (total, account) => total + account.storageUsed);
   int? get totalStorageLimit => accounts.every((item) => item.storageLimit != null)
@@ -40,6 +46,12 @@ class DriveController extends ChangeNotifier {
           (total, account) => total + account.storageLimit!,
         )
       : null;
+  int indexedBytesFor(Iterable<DriveAccount> targetAccounts) {
+    final ids = targetAccounts.map((account) => account.id).toSet();
+    return indexedFiles
+        .where((item) => ids.contains(item.accountId) && !item.isFolder)
+        .fold(0, (total, item) => total + (item.size ?? 0));
+  }
   bool get hasClientId => webClientId.endsWith('.apps.googleusercontent.com');
   DriveAccount? get selectedAccount => accountById(selectedAccountId);
   List<FolderCrumb> get currentPath => selectedAccountId == null
@@ -67,14 +79,27 @@ class DriveController extends ChangeNotifier {
   }
 
   List<DriveItem> get visibleFiles {
-    final normalized = query.trim().toLowerCase();
+    final normalized = query
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[*?]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+    final searchTerms = normalized.split(' ').where((item) => item.isNotEmpty);
     final useGlobalIndex = viewMode != FileViewMode.all ||
-        (allDrives && normalized.isNotEmpty && indexReady);
+        (normalized.isNotEmpty && indexReady);
     final source = useGlobalIndex ? indexedFiles : files;
-    final searched = source
-        .where((item) =>
-            normalized.isEmpty || item.name.toLowerCase().contains(normalized))
-        .toList();
+    final searched = source.where((item) {
+      if (normalized.isEmpty) return true;
+      final searchable = <String>[
+        item.name,
+        item.accountEmail,
+        item.location,
+        item.mimeType,
+        item.isFolder ? 'folder directory' : 'file',
+        if (item.size != null) '${item.size}',
+      ].join(' ').toLowerCase();
+      return searchTerms.every(searchable.contains);
+    }).toList();
     final result = searched.where((item) {
       return switch (viewMode) {
         FileViewMode.all => true,
@@ -120,6 +145,13 @@ class DriveController extends ChangeNotifier {
   Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
     webClientId = preferences.getString('farooqdrive.webClientId') ?? '';
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    activityLog
+      ..clear()
+      ..addAll((preferences.getStringList('farooqdrive.activityLog') ?? const [])
+          .map(ActivityEntry.tryFromJson)
+          .whereType<ActivityEntry>()
+          .where((entry) => entry.timestamp.isAfter(cutoff)));
     notifyListeners();
   }
 
@@ -156,10 +188,18 @@ class DriveController extends ChangeNotifier {
           () => <FolderCrumb>[const FolderCrumb('root', 'My Drive')],
         );
         selectedAccountId = added.id;
+        indexReady = false;
+        await _buildGlobalIndex();
         await _loadFiles();
+        await _recordActivity(
+          'Drive connected',
+          added.email,
+          accountEmail: added.email,
+        );
       });
 
   Future<void> selectAccount(String? id) => _guard(() async {
+        if (selectedAccountId != id) _rememberLocation();
         selectedAccountId = id;
         if (id != null) {
           paths.putIfAbsent(
@@ -167,18 +207,24 @@ class DriveController extends ChangeNotifier {
             () => <FolderCrumb>[const FolderCrumb('root', 'My Drive')],
           );
         }
-        if (id == null) {
-          await _refreshQuotas();
-          if (!indexReady) await _buildGlobalIndex();
-        }
+        if (id == null) await _refreshQuotas();
+        if (!indexReady) await _buildGlobalIndex();
         await _loadFiles();
+        if (id != null) {
+          final account = accountById(id);
+          await _recordActivity(
+            'Drive opened',
+            account?.email ?? id,
+            accountEmail: account?.email,
+          );
+        }
       }, message: id == null ? 'Calculating all Drives…' : 'Opening Drive…');
 
   Future<void> refresh() => _guard(() async {
         await _refreshQuotas();
         indexReady = false;
         await _loadFiles();
-        if (viewMode != FileViewMode.all) await _buildGlobalIndex();
+        await _buildGlobalIndex();
       });
 
   Future<void> _refreshQuotas() async {
@@ -210,6 +256,7 @@ class DriveController extends ChangeNotifier {
 
   Future<void> openFolder(DriveItem item) => _guard(() async {
         if (!item.isFolder) return;
+        _rememberLocation();
         selectedAccountId = item.accountId;
         final path = paths.putIfAbsent(
           item.accountId,
@@ -217,20 +264,45 @@ class DriveController extends ChangeNotifier {
         );
         path.add(FolderCrumb(item.id, item.name));
         await _loadFiles();
+        await _recordActivity(
+          'Folder opened',
+          item.name,
+          accountEmail: item.accountEmail,
+        );
       });
 
   Future<void> openCrumb(int index) => _guard(() async {
         if (selectedAccountId == null) return;
+        if (index == currentPath.length - 1) return;
+        _rememberLocation();
         paths[selectedAccountId!] = currentPath.take(index + 1).toList();
         await _loadFiles();
       });
 
   Future<void> goUp() => _guard(() async {
         if (selectedAccountId == null || currentPath.length <= 1) return;
+        _rememberLocation();
         paths[selectedAccountId!] =
             currentPath.take(currentPath.length - 1).toList();
         await _loadFiles();
       });
+
+  Future<void> goBack() => _guard(() async {
+        if (_navigationHistory.isEmpty) return;
+        final previous = _navigationHistory.removeLast();
+        selectedAccountId = previous.accountId;
+        if (previous.accountId != null) {
+          paths[previous.accountId!] = List.of(previous.path);
+        }
+        await _loadFiles();
+      }, message: 'Going back…');
+
+  void _rememberLocation() {
+    _navigationHistory.add(
+      _NavigationState(selectedAccountId, List.of(currentPath)),
+    );
+    if (_navigationHistory.length > 50) _navigationHistory.removeAt(0);
+  }
 
   void toggle(DriveItem item, bool value) {
     value ? selectedKeys.add(keyOf(item)) : selectedKeys.remove(keyOf(item));
@@ -247,7 +319,7 @@ class DriveController extends ChangeNotifier {
   Future<void> setQuery(String value) async {
     query = value;
     notifyListeners();
-    if (allDrives && value.trim().isNotEmpty && !indexReady && !indexing) {
+    if (value.trim().isNotEmpty && !indexReady && !indexing) {
       await _guard(_buildGlobalIndex, message: 'Searching all Drives…');
     }
   }
@@ -368,6 +440,7 @@ class DriveController extends ChangeNotifier {
   }
 
   Future<void> disconnectAccount(String accountId) => _guard(() async {
+    final email = accountById(accountId)?.email ?? accountId;
     accounts.removeWhere((item) => item.id == accountId);
     files.removeWhere((item) => item.accountId == accountId);
     indexedFiles.removeWhere((item) => item.accountId == accountId);
@@ -376,12 +449,18 @@ class DriveController extends ChangeNotifier {
     indexReady = false;
     selectedKeys.clear();
     await _loadFiles();
+    await _recordActivity('Drive disconnected', email, accountEmail: email);
   }, message: 'Disconnecting Drive…');
 
   Future<void> createFolder(String name) => _guard(() async {
         final account = selectedAccount;
         if (account == null) throw const DriveApiException('Open one Drive first.');
         await api.createFolder(account, currentFolderId, name.trim());
+        await _recordActivity(
+          'Folder created',
+          '${name.trim()} in ${currentPath.map((item) => item.name).join(' / ')}',
+          accountEmail: account.email,
+        );
         await _afterMutation();
       });
 
@@ -389,12 +468,22 @@ class DriveController extends ChangeNotifier {
         if (selectedItems.length != 1) return;
         final item = selectedItems.single;
         await api.rename(accountById(item.accountId)!, item.id, name.trim());
+        await _recordActivity(
+          'Renamed',
+          '${item.name} → ${name.trim()}',
+          accountEmail: item.accountEmail,
+        );
         await _afterMutation();
       });
 
   Future<void> trashSelected() => _guard(() async {
         for (final item in selectedItems) {
           await api.setTrashed(accountById(item.accountId)!, item.id, true);
+          await _recordActivity(
+            'Moved to Trash',
+            item.name,
+            accountEmail: item.accountEmail,
+          );
         }
         await _afterMutation();
       });
@@ -410,6 +499,11 @@ class DriveController extends ChangeNotifier {
           bytes: bytes,
           mimeType: mimeType ?? 'application/octet-stream',
         );
+        await _recordActivity(
+          'Uploaded',
+          '$name (${bytes.length} bytes)',
+          accountEmail: account.email,
+        );
         await _afterMutation();
       });
 
@@ -419,7 +513,13 @@ class DriveController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      return await api.downloadBytes(accountById(item.accountId)!, item);
+      final bytes = await api.downloadBytes(accountById(item.accountId)!, item);
+      await _recordActivity(
+        'Downloaded',
+        item.name,
+        accountEmail: item.accountEmail,
+      );
+      return bytes;
     } finally {
       loading = false;
       operationMessage = 'Working…';
@@ -488,6 +588,11 @@ class DriveController extends ChangeNotifier {
               await api.setTrashed(source, item.id, true);
             }
           }
+          await _recordActivity(
+            clip.mode == ClipboardMode.copy ? 'Copied' : 'Moved',
+            '${item.name} → ${destination.email} / ${currentPath.map((entry) => entry.name).join(' / ')}',
+            accountEmail: destination.email,
+          );
         }
         if (clip.mode == ClipboardMode.move) clipboard = null;
         await _afterMutation();
@@ -547,7 +652,48 @@ class DriveController extends ChangeNotifier {
   Future<void> _afterMutation() async {
     indexReady = false;
     await _loadFiles();
-    if (viewMode != FileViewMode.all) await _buildGlobalIndex();
+    await _buildGlobalIndex();
+  }
+
+  Future<void> clearActivityLog() async {
+    activityLog.clear();
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove('farooqdrive.activityLog');
+    notifyListeners();
+  }
+
+  Future<void> recordFileOpened(DriveItem item) => _recordActivity(
+        'File opened',
+        item.name,
+        accountEmail: item.accountEmail,
+      );
+
+  Future<void> _recordActivity(
+    String action,
+    String details, {
+    String? accountEmail,
+  }) async {
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    activityLog
+      ..removeWhere((entry) => entry.timestamp.isBefore(cutoff))
+      ..insert(
+        0,
+        ActivityEntry(
+          action: action,
+          details: details,
+          accountEmail: accountEmail,
+          timestamp: DateTime.now(),
+        ),
+      );
+    if (activityLog.length > 400) {
+      activityLog.removeRange(400, activityLog.length);
+    }
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setStringList(
+      'farooqdrive.activityLog',
+      activityLog.map((entry) => entry.toJson()).toList(),
+    );
+    notifyListeners();
   }
 
   Future<void> _guard(
@@ -562,8 +708,10 @@ class DriveController extends ChangeNotifier {
       await action();
     } on DriveApiException catch (exception) {
       error = exception.message;
+      await _recordActivity('Failed', '$message: ${exception.message}');
     } catch (exception) {
       error = exception.toString();
+      await _recordActivity('Failed', '$message: $exception');
     } finally {
       loading = false;
       operationMessage = 'Working…';
@@ -587,4 +735,45 @@ class _TreeStats {
         files: files + other.files,
         bytes: bytes + other.bytes,
       );
+}
+
+class _NavigationState {
+  const _NavigationState(this.accountId, this.path);
+  final String? accountId;
+  final List<FolderCrumb> path;
+}
+
+class ActivityEntry {
+  const ActivityEntry({
+    required this.action,
+    required this.details,
+    required this.timestamp,
+    this.accountEmail,
+  });
+
+  final String action;
+  final String details;
+  final DateTime timestamp;
+  final String? accountEmail;
+
+  static ActivityEntry? tryFromJson(String value) {
+    try {
+      final data = jsonDecode(value) as Map<String, dynamic>;
+      return ActivityEntry(
+        action: data['action'] as String? ?? 'Activity',
+        details: data['details'] as String? ?? '',
+        timestamp: DateTime.tryParse('${data['timestamp']}') ?? DateTime.now(),
+        accountEmail: data['accountEmail'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String toJson() => jsonEncode({
+        'action': action,
+        'details': details,
+        'timestamp': timestamp.toIso8601String(),
+        if (accountEmail != null) 'accountEmail': accountEmail,
+      });
 }
