@@ -25,6 +25,7 @@ class DriveController extends ChangeNotifier {
 
   String? selectedAccountId;
   String webClientId = '';
+  String desktopClientSecret = '';
   String query = '';
   String sort = 'name';
   FileViewMode viewMode = FileViewMode.files;
@@ -54,6 +55,9 @@ class DriveController extends ChangeNotifier {
         .fold(0, (total, item) => total + (item.size ?? 0));
   }
   bool get hasClientId => webClientId.endsWith('.apps.googleusercontent.com');
+  bool get hasRequiredCredentials => hasClientId &&
+      (!GoogleAccountAuthorizer.requiresClientSecret ||
+          desktopClientSecret.trim().isNotEmpty);
   DriveAccount? get selectedAccount => accountById(selectedAccountId);
   List<FolderCrumb> get currentPath => selectedAccountId == null
       ? const []
@@ -153,6 +157,7 @@ class DriveController extends ChangeNotifier {
     webClientId = preferences.getString('farooqdrive.googleClientId') ??
         preferences.getString('farooqdrive.webClientId') ??
         '';
+    desktopClientSecret = await authorizer.loadClientSecret();
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     activityLog
       ..clear()
@@ -164,7 +169,10 @@ class DriveController extends ChangeNotifier {
     operationMessage = 'Restoring Google accounts…';
     notifyListeners();
     try {
-      final restored = await authorizer.restoreAccounts(webClientId);
+      final restored = await authorizer.restoreAccounts(
+        webClientId,
+        desktopClientSecret,
+      );
       accounts
         ..clear()
         ..addAll(restored);
@@ -201,13 +209,31 @@ class DriveController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveClientSecret(String value) async {
+    final secret = value.trim();
+    if (secret.isEmpty) {
+      error = 'Enter your Google Desktop Client Secret.';
+      notifyListeners();
+      return;
+    }
+    await authorizer.saveClientSecret(secret);
+    desktopClientSecret = secret;
+    error = null;
+    notifyListeners();
+  }
+
   Future<void> addAccount() => _guard(() async {
-        if (!hasClientId && GoogleAccountAuthorizer.buildClientId.isEmpty) {
+        if ((!hasClientId && GoogleAccountAuthorizer.buildClientId.isEmpty) ||
+            (GoogleAccountAuthorizer.requiresClientSecret &&
+                desktopClientSecret.isEmpty)) {
           throw const DriveApiException(
             GoogleAccountAuthorizer.missingClientIdMessage,
           );
         }
-        final added = await authorizer.addAccount(webClientId);
+        final added = await authorizer.addAccount(
+          webClientId,
+          desktopClientSecret,
+        );
         if (added == null) return;
         final index = accounts.indexWhere((item) => item.id == added.id);
         if (index < 0) {
