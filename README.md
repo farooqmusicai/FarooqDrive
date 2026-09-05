@@ -6,6 +6,13 @@
 
 This public GitHub Pages edition is provided for testing the Web application.
 
+## Demo Video
+
+[Watch the FarooqDrive Windows and Web demonstration on YouTube](https://www.youtube.com/watch?v=JrCJkNApJtU)
+
+The video demonstrates FarooqDrive Version 19, Google account connection, the
+unified Drive interface, storage information, and file-management workflow.
+
 ## Screenshots
 
 ### All Drives — ready to connect
