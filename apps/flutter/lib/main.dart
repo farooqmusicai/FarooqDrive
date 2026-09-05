@@ -159,7 +159,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   Future<void> _settings() async {
     final value = await _ask(
-      'Google Web Client ID',
+      GoogleAccountAuthorizer.clientIdLabel,
       initial: controller.webClientId,
     );
     if (value != null && value.isNotEmpty) {
@@ -419,7 +419,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 13',
+                          'Version 14',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
