@@ -78,6 +78,28 @@ class GoogleDriveApi {
     return items;
   }
 
+  Future<List<DriveItem>> listAllFiles(DriveAccount account) async {
+    final items = <DriveItem>[];
+    String? pageToken;
+    do {
+      final query = <String, String>{
+        'q': 'trashed=false',
+        'spaces': 'drive',
+        'pageSize': '1000',
+        'fields':
+            'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,capabilities(canDownload))',
+        if (pageToken != null) 'pageToken': pageToken,
+      };
+      final uri = Uri.parse('$_api/files').replace(queryParameters: query);
+      final data = await _json(account, uri.toString());
+      items.addAll((data['files'] as List? ?? const [])
+          .cast<Map<String, dynamic>>()
+          .map((json) => DriveItem.fromJson(json, account: account)));
+      pageToken = data['nextPageToken'] as String?;
+    } while (pageToken != null && pageToken.isNotEmpty);
+    return items;
+  }
+
   Future<DriveAccount> refreshQuota(DriveAccount account) async {
     final uri = Uri.parse('$_api/about').replace(
       queryParameters: const {'fields': 'storageQuota'},
@@ -196,6 +218,20 @@ class GoogleDriveApi {
           statusCode: response.statusCode);
     }
     return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
+  }
+
+  Future<bool> verifyUploadedFile(
+    DriveAccount account,
+    String fileId,
+    int expectedSize,
+  ) async {
+    final data = await _json(
+      account,
+      '$_api/files/${Uri.encodeComponent(fileId)}?fields=id,size,trashed',
+    );
+    return data['id'] == fileId &&
+        data['trashed'] != true &&
+        int.tryParse('${data['size'] ?? ''}') == expectedSize;
   }
 
   Future<Uint8List> downloadBytes(DriveAccount account, DriveItem item) async {

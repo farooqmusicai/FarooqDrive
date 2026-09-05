@@ -42,6 +42,7 @@ class DriveItem {
     this.webViewLink,
     this.parents = const [],
     this.canDownload = true,
+    this.location = 'My Drive',
   });
 
   final String id;
@@ -54,8 +55,23 @@ class DriveItem {
   final String? webViewLink;
   final List<String> parents;
   final bool canDownload;
+  final String location;
 
   bool get isFolder => mimeType == googleFolderMime;
+
+  DriveItem copyWithLocation(String value) => DriveItem(
+        id: id,
+        name: name,
+        mimeType: mimeType,
+        accountId: accountId,
+        accountEmail: accountEmail,
+        size: size,
+        modifiedTime: modifiedTime,
+        webViewLink: webViewLink,
+        parents: parents,
+        canDownload: canDownload,
+        location: value,
+      );
 
   factory DriveItem.fromJson(
     Map<String, dynamic> json, {

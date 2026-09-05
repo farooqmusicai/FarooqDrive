@@ -30,7 +30,8 @@ String _formatBytes(int bytes) {
     amount /= 1024;
     unit++;
   }
-  return '${unit == 0 ? amount.toStringAsFixed(0) : amount.toStringAsFixed(1)} ${units[unit]}';
+  final decimals = unit == 0 ? 0 : (unit >= 3 ? 2 : 1);
+  return '${amount.toStringAsFixed(decimals)} ${units[unit]}';
 }
 
 void main() => runApp(const FarooqDriveApp());
@@ -521,7 +522,11 @@ class _StorageSummary extends StatelessWidget {
           _StorageCard(
             icon: Icons.cloud_outlined,
             label: controller.allDrives ? 'Total storage' : 'Drive storage',
-            value: limit == null ? 'Not reported' : _formatBytes(limit),
+            value: limit == null
+                ? 'Not reported'
+                : controller.allDrives
+                    ? '${_formatBytes(limit)} · ${accounts.length} Drives'
+                    : _formatBytes(limit),
           ),
           const SizedBox(width: 10),
           _StorageCard(
@@ -706,14 +711,22 @@ class _FileViews extends StatelessWidget {
               ),
               ChoiceChip(
                 avatar: const Icon(Icons.content_copy, size: 18),
-                label: Text('Exact duplicates (${controller.exactDuplicateCount})'),
+                label: Text(controller.indexing
+                    ? 'Scanning all folders…'
+                    : controller.indexReady
+                        ? 'Exact duplicates (${controller.exactDuplicateCount})'
+                        : 'Scan exact duplicates'),
                 selected: controller.viewMode == FileViewMode.exactDuplicates,
                 onSelected: (_) =>
                     controller.setViewMode(FileViewMode.exactDuplicates),
               ),
               ChoiceChip(
                 avatar: const Icon(Icons.difference_outlined, size: 18),
-                label: Text('Same name, different size (${controller.nameConflictCount})'),
+                label: Text(controller.indexing
+                    ? 'Scanning all folders…'
+                    : controller.indexReady
+                        ? 'Same name, different size (${controller.nameConflictCount})'
+                        : 'Scan same-name files'),
                 selected: controller.viewMode == FileViewMode.nameConflicts,
                 onSelected: (_) =>
                     controller.setViewMode(FileViewMode.nameConflicts),
@@ -779,7 +792,9 @@ class _FileList extends StatelessWidget {
             Text(
               controller.accounts.isEmpty
                   ? 'Connect a Google account to begin.'
-                  : 'No files in this folder.',
+                  : controller.viewMode == FileViewMode.all
+                      ? 'No files in this folder.'
+                      : 'No matching duplicates were found across your Drives.',
             ),
           ],
         ),
@@ -800,12 +815,14 @@ class _FileList extends StatelessWidget {
                 value: allSelected,
                 onChanged: (value) => controller.toggleAll(value ?? false),
               ),
-              title: const Row(
+              title: Row(
                 children: [
-                  Expanded(flex: 4, child: Text('Name')),
-                  Expanded(flex: 3, child: Text('Account')),
-                  Expanded(child: Text('Size')),
-                  Expanded(flex: 2, child: Text('Modified')),
+                  const Expanded(flex: 4, child: Text('Name')),
+                  const Expanded(flex: 3, child: Text('Account')),
+                  if (controller.viewMode != FileViewMode.all)
+                    const Expanded(flex: 3, child: Text('Location')),
+                  const Expanded(child: Text('Size')),
+                  const Expanded(flex: 2, child: Text('Modified')),
                 ],
               ),
             ),
@@ -876,6 +893,18 @@ class _FileList extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (controller.viewMode != FileViewMode.all)
+                        Expanded(
+                          flex: 3,
+                          child: Tooltip(
+                            message: item.location,
+                            child: Text(
+                              item.location,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
                       Expanded(child: Text(item.isFolder ? '—' : size(item.size))),
                       Expanded(
                         flex: 2,

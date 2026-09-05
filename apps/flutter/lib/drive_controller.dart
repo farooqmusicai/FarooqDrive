@@ -14,6 +14,7 @@ class DriveController extends ChangeNotifier {
   final GoogleAccountAuthorizer authorizer;
   final List<DriveAccount> accounts = [];
   final List<DriveItem> files = [];
+  final List<DriveItem> indexedFiles = [];
   final Set<String> selectedKeys = {};
   final Map<String, List<FolderCrumb>> paths = {};
 
@@ -24,6 +25,8 @@ class DriveController extends ChangeNotifier {
   FileViewMode viewMode = FileViewMode.all;
   DriveClipboard? clipboard;
   bool loading = false;
+  bool indexing = false;
+  bool indexReady = false;
   String? error;
 
   bool get allDrives => selectedAccountId == null;
@@ -48,7 +51,8 @@ class DriveController extends ChangeNotifier {
 
   List<DriveItem> get visibleFiles {
     final normalized = query.trim().toLowerCase();
-    final searched = files
+    final source = viewMode == FileViewMode.all ? files : indexedFiles;
+    final searched = source
         .where((item) =>
             normalized.isEmpty || item.name.toLowerCase().contains(normalized))
         .toList();
@@ -72,22 +76,27 @@ class DriveController extends ChangeNotifier {
     return result;
   }
 
-  bool isExactDuplicate(DriveItem item) => files.any((other) =>
-      other.accountId != item.accountId &&
+  bool isExactDuplicate(DriveItem item) => !item.isFolder &&
+      item.size != null &&
+      indexedFiles.any((other) =>
+      keyOf(other) != keyOf(item) &&
+      !other.isFolder &&
       other.isFolder == item.isFolder &&
       other.name.trim().toLowerCase() == item.name.trim().toLowerCase() &&
       other.size == item.size);
 
-  bool isNameConflict(DriveItem item) => files.any((other) =>
-      other.accountId != item.accountId &&
+  bool isNameConflict(DriveItem item) => !item.isFolder &&
+      indexedFiles.any((other) =>
+      keyOf(other) != keyOf(item) &&
+      !other.isFolder &&
       other.isFolder == item.isFolder &&
       other.name.trim().toLowerCase() == item.name.trim().toLowerCase() &&
-      other.size != item.size);
+      (other.size != item.size || item.size == null || other.size == null));
 
   int get exactDuplicateCount =>
-      files.where(isExactDuplicate).map((item) => item.name.toLowerCase()).toSet().length;
+      indexedFiles.where(isExactDuplicate).map((item) => item.name.toLowerCase()).toSet().length;
   int get nameConflictCount =>
-      files.where(isNameConflict).map((item) => item.name.toLowerCase()).toSet().length;
+      indexedFiles.where(isNameConflict).map((item) => item.name.toLowerCase()).toSet().length;
 
   Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
@@ -139,10 +148,24 @@ class DriveController extends ChangeNotifier {
             () => <FolderCrumb>[const FolderCrumb('root', 'My Drive')],
           );
         }
+        if (id == null) await _refreshQuotas();
         await _loadFiles();
       });
 
-  Future<void> refresh() => _guard(_loadFiles);
+  Future<void> refresh() => _guard(() async {
+        await _refreshQuotas();
+        indexReady = false;
+        await _loadFiles();
+        if (viewMode != FileViewMode.all) await _buildGlobalIndex();
+      });
+
+  Future<void> _refreshQuotas() async {
+    final refreshed = await Future.wait(accounts.map(api.refreshQuota));
+    for (final account in refreshed) {
+      final index = accounts.indexWhere((item) => item.id == account.id);
+      if (index >= 0) accounts[index] = account;
+    }
+  }
 
   Future<void> _loadFiles() async {
     final targets = allDrives
@@ -209,10 +232,45 @@ class DriveController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setViewMode(FileViewMode value) {
+  Future<void> setViewMode(FileViewMode value) => _guard(() async {
     viewMode = value;
     selectedKeys.clear();
+    if (value != FileViewMode.all && !indexReady) {
+      await _buildGlobalIndex();
+    }
+  });
+
+  Future<void> _buildGlobalIndex() async {
+    indexing = true;
     notifyListeners();
+    try {
+      final groups = await Future.wait(accounts.map(api.listAllFiles));
+      indexedFiles
+        ..clear()
+        ..addAll(groups.expand(_withLocations));
+      indexReady = true;
+    } finally {
+      indexing = false;
+      notifyListeners();
+    }
+  }
+
+  Iterable<DriveItem> _withLocations(List<DriveItem> accountItems) {
+    final byId = {for (final item in accountItems) item.id: item};
+    return accountItems.map((item) {
+      final names = <String>[];
+      final seen = <String>{};
+      var parentId = item.parents.isEmpty ? null : item.parents.first;
+      while (parentId != null && seen.add(parentId)) {
+        final parent = byId[parentId];
+        if (parent == null) break;
+        names.insert(0, parent.name);
+        parentId = parent.parents.isEmpty ? null : parent.parents.first;
+      }
+      return item.copyWithLocation(
+        ['My Drive', ...names].join(' / '),
+      );
+    });
   }
 
   void setClipboard(ClipboardMode mode) {
@@ -225,21 +283,21 @@ class DriveController extends ChangeNotifier {
         final account = selectedAccount;
         if (account == null) throw const DriveApiException('Open one Drive first.');
         await api.createFolder(account, currentFolderId, name.trim());
-        await _loadFiles();
+        await _afterMutation();
       });
 
   Future<void> renameSelected(String name) => _guard(() async {
         if (selectedItems.length != 1) return;
         final item = selectedItems.single;
         await api.rename(accountById(item.accountId)!, item.id, name.trim());
-        await _loadFiles();
+        await _afterMutation();
       });
 
   Future<void> trashSelected() => _guard(() async {
         for (final item in selectedItems) {
           await api.setTrashed(accountById(item.accountId)!, item.id, true);
         }
-        await _loadFiles();
+        await _afterMutation();
       });
 
   Future<void> upload(String name, Uint8List bytes, String? mimeType) =>
@@ -253,7 +311,7 @@ class DriveController extends ChangeNotifier {
           bytes: bytes,
           mimeType: mimeType ?? 'application/octet-stream',
         );
-        await _loadFiles();
+        await _afterMutation();
       });
 
   Future<Uint8List> download(DriveItem item) =>
@@ -271,7 +329,24 @@ class DriveController extends ChangeNotifier {
             if (source.id == destination.id && clip.mode == ClipboardMode.move) {
               await api.move(source, item, currentFolderId);
             } else {
-              await _copyFolderTree(source, destination, item, currentFolderId);
+              final sourceStats = await _treeStats(source, item.id);
+              final copiedFolderId = await _copyFolderTree(
+                source,
+                destination,
+                item,
+                currentFolderId,
+              );
+              final destinationStats =
+                  await _treeStats(destination, copiedFolderId);
+              final complete = sourceStats.files == destinationStats.files &&
+                  sourceStats.folders == destinationStats.folders &&
+                  (source.id != destination.id ||
+                      sourceStats.bytes == destinationStats.bytes);
+              if (!complete) {
+                throw const DriveApiException(
+                  'Transfer verification failed. The source was kept unchanged.',
+                );
+              }
               if (clip.mode == ClipboardMode.move) {
                 await api.setTrashed(source, item.id, true);
               }
@@ -282,23 +357,33 @@ class DriveController extends ChangeNotifier {
                 : await api.move(source, item, currentFolderId);
           } else {
             final transfer = await api.downloadForTransfer(source, item);
-            await api.uploadBytes(
+            final uploadedId = await api.uploadBytes(
               destination,
               parentId: currentFolderId,
               name: transfer.name,
               bytes: transfer.bytes,
               mimeType: transfer.mimeType,
             );
+            final verified = await api.verifyUploadedFile(
+              destination,
+              uploadedId,
+              transfer.bytes.length,
+            );
+            if (!verified) {
+              throw const DriveApiException(
+                'Transfer verification failed. The source was kept unchanged.',
+              );
+            }
             if (clip.mode == ClipboardMode.move) {
               await api.setTrashed(source, item.id, true);
             }
           }
         }
         if (clip.mode == ClipboardMode.move) clipboard = null;
-        await _loadFiles();
+        await _afterMutation();
       });
 
-  Future<void> _copyFolderTree(
+  Future<String> _copyFolderTree(
     DriveAccount source,
     DriveAccount destination,
     DriveItem folder,
@@ -326,6 +411,33 @@ class DriveController extends ChangeNotifier {
         );
       }
     }
+    return newFolderId;
+  }
+
+  Future<_TreeStats> _treeStats(
+    DriveAccount account,
+    String folderId,
+  ) async {
+    var stats = const _TreeStats(folders: 1, files: 0, bytes: 0);
+    final children = await api.listFolder(account, folderId);
+    for (final child in children) {
+      if (child.isFolder) {
+        stats += await _treeStats(account, child.id);
+      } else {
+        stats += _TreeStats(
+          folders: 0,
+          files: 1,
+          bytes: child.size ?? 0,
+        );
+      }
+    }
+    return stats;
+  }
+
+  Future<void> _afterMutation() async {
+    indexReady = false;
+    await _loadFiles();
+    if (viewMode != FileViewMode.all) await _buildGlobalIndex();
   }
 
   Future<void> _guard(Future<void> Function() action) async {
@@ -343,4 +455,21 @@ class DriveController extends ChangeNotifier {
       notifyListeners();
     }
   }
+}
+
+class _TreeStats {
+  const _TreeStats({
+    required this.folders,
+    required this.files,
+    required this.bytes,
+  });
+  final int folders;
+  final int files;
+  final int bytes;
+
+  _TreeStats operator +(_TreeStats other) => _TreeStats(
+        folders: folders + other.folders,
+        files: files + other.files,
+        bytes: bytes + other.bytes,
+      );
 }
