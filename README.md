@@ -1,5 +1,11 @@
 # FarooqDrive Complete Edition
 
+## Live Web App
+
+[Open FarooqDrive in your browser](https://farooqmusicai.github.io/FarooqDrive/)
+
+This public GitHub Pages edition is provided for testing the Web application.
+
 FarooqDrive presents multiple Google Drive accounts in one file-manager
 interface. This repository contains:
 
