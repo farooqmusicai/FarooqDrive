@@ -280,6 +280,50 @@ class _FileManagerPageState extends State<FileManagerPage> {
     );
   }
 
+  Future<void> _showHelp() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.help_outline),
+            SizedBox(width: 10),
+            Text('Help — How FarooqDrive works'),
+          ],
+        ),
+        content: const SizedBox(
+          width: 720,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _HelpSection(title: '1. Connect your Drives', text: 'Select Add Google account and approve Google Drive access in your browser. Repeat this for every account you want to manage.'),
+                _HelpSection(title: '2. Browse everything together', text: 'All Drives combines connected accounts. Select one account for its My Drive. Double-click a folder to open it; use Back, Up or the path bar to return.'),
+                _HelpSection(title: '3. All, Folders and Files', text: 'All shows folders and files together. The other tabs filter the list. Search works across all indexed Drives and every count changes to match the results currently shown.'),
+                _HelpSection(title: '4. Manage files', text: 'Select one or more items, then use Download, Copy, Cut, Paste, Rename or Trash. For Cut/Copy, open the destination Drive or folder before selecting Paste.'),
+                _HelpSection(title: '5. Storage and activity', text: 'Storage cards show Google-reported capacity and usage. The history icon shows activity recorded on this device for the last 7 days.'),
+                _HelpSection(title: 'Privacy and safety', text: 'Files transfer directly between this device/browser and Google Drive. FarooqDrive does not operate an intermediate file-storage server. Moving an item to Trash uses Google Drive Trash.'),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => launchUrl(Uri.parse('https://www.mymandoob.com/farooqdrive/'), mode: LaunchMode.platformDefault, webOnlyWindowName: '_blank'),
+            icon: const Icon(Icons.language),
+            label: const Text('FarooqDrive'),
+          ),
+          TextButton.icon(
+            onPressed: () => launchUrl(Uri.parse('mailto:support@mymandoob.com')),
+            icon: const Icon(Icons.support_agent),
+            label: const Text('Support'),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 850;
@@ -290,6 +334,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                 controller: controller,
                 onAddAccount: _addAccount,
                 onSettings: _settings,
+                onHelp: _showHelp,
               ),
             )
           : null,
@@ -305,6 +350,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                   controller: controller,
                   onAddAccount: _addAccount,
                   onSettings: _settings,
+                  onHelp: _showHelp,
                 ),
               ),
             Expanded(
@@ -391,15 +437,37 @@ class _FileManagerPageState extends State<FileManagerPage> {
   }
 }
 
+class _HelpSection extends StatelessWidget {
+  const _HelpSection({required this.title, required this.text});
+
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text(text),
+          ],
+        ),
+      );
+}
+
 class _Sidebar extends StatelessWidget {
   const _Sidebar({
     required this.controller,
     required this.onAddAccount,
     required this.onSettings,
+    required this.onHelp,
   });
   final DriveController controller;
   final VoidCallback onAddAccount;
   final VoidCallback onSettings;
+  final VoidCallback onHelp;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -526,6 +594,11 @@ class _Sidebar extends StatelessWidget {
                     tooltip: 'Google settings',
                     onPressed: onSettings,
                     icon: const Icon(Icons.settings, color: Color(0xff9db5d1)),
+                  ),
+                  IconButton(
+                    tooltip: 'Help — How FarooqDrive works',
+                    onPressed: onHelp,
+                    icon: const Icon(Icons.help_outline, color: Color(0xff9db5d1)),
                   ),
                   IconButton(
                     tooltip: 'FarooqDrive website',
