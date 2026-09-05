@@ -112,7 +112,11 @@ class _FileManagerPageState extends State<FileManagerPage> {
     }
   }
 
-  Future<String?> _ask(String title, {String initial = ''}) async {
+  Future<String?> _ask(
+    String title, {
+    String initial = '',
+    bool obscure = false,
+  }) async {
     final input = TextEditingController(text: initial);
     return showDialog<String>(
       context: context,
@@ -121,6 +125,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
         content: TextField(
           controller: input,
           autofocus: true,
+          obscureText: obscure,
           onSubmitted: (value) => Navigator.pop(context, value.trim()),
         ),
         actions: [
@@ -165,13 +170,24 @@ class _FileManagerPageState extends State<FileManagerPage> {
     if (value != null && value.isNotEmpty) {
       await controller.saveClientId(value);
     }
+    if (GoogleAccountAuthorizer.requiresClientSecret) {
+      final secret = await _ask(
+        'Google Desktop Client Secret',
+        initial: controller.desktopClientSecret,
+        obscure: true,
+      );
+      if (secret != null && secret.isNotEmpty) {
+        await controller.saveClientSecret(secret);
+      }
+    }
   }
 
   Future<void> _addAccount() async {
-    if (!controller.hasClientId &&
-        GoogleAccountAuthorizer.buildClientId.isEmpty) {
+    if (!controller.hasRequiredCredentials ||
+        (!controller.hasClientId &&
+            GoogleAccountAuthorizer.buildClientId.isEmpty)) {
       await _settings();
-      if (!controller.hasClientId) return;
+      if (!controller.hasRequiredCredentials) return;
     }
     await controller.addAccount();
   }
@@ -419,7 +435,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 14',
+                          'Version 15',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
