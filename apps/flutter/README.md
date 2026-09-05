@@ -1,7 +1,7 @@
 # FarooqDrive Flutter
 
-This is the cross-platform FarooqDrive application. Web is the first reference
-platform; Windows will use the same models, controller and Drive API service.
+This is the cross-platform FarooqDrive application. Web and Windows share the
+same interface, controller, models, and Google Drive API service.
 
 ## Run locally
 
@@ -21,9 +21,24 @@ flutter build web --release \
   --dart-define=GOOGLE_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
 ```
 
+## Run or build Windows
+
+Create a Google OAuth **Desktop app** client, then run:
+
+```sh
+flutter create --platforms=windows .
+flutter run -d windows \
+  --dart-define=GOOGLE_DESKTOP_CLIENT_ID=YOUR_DESKTOP_CLIENT_ID.apps.googleusercontent.com
+```
+
+The Client ID can instead be entered in FarooqDrive Settings. Never add a
+Desktop Client Secret: the app uses the system browser, a loopback callback,
+and PKCE. Windows refresh tokens are stored in the operating system's secure
+credential storage so connected accounts can be restored on restart.
+
 ## Current milestone
 
-- Multiple Google account connections during the active session
+- Multiple Google account connections, including secure Windows restoration
 - Unified and per-account root views
 - Complete paginated folder listing
 - Breadcrumb navigation, search and sorting
@@ -31,5 +46,6 @@ flutter build web --release \
 - Rename, move to Trash, copy, cut and paste
 - Cross-account file copy/move through the user's browser
 
-Recursive folder transfer, resumable large uploads, token recovery and the
-settings/help surfaces remain on the Web completion checklist.
+The GitHub Windows workflow produces a portable x64 ZIP. A signed installer,
+resumable large transfers, and clean-machine Windows 10/11 testing remain on
+the Windows release checklist.
