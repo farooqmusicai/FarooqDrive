@@ -28,7 +28,7 @@ class DriveController extends ChangeNotifier {
   String desktopClientSecret = '';
   String query = '';
   String sort = 'name';
-  FileViewMode viewMode = FileViewMode.files;
+  FileViewMode viewMode = FileViewMode.folders;
   DriveClipboard? clipboard;
   bool loading = false;
   bool indexing = false;
