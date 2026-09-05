@@ -291,18 +291,50 @@ class _FileManagerPageState extends State<FileManagerPage> {
             Text('Help — How FarooqDrive works'),
           ],
         ),
-        content: const SizedBox(
-          width: 720,
-          child: SingleChildScrollView(
+        content: const DefaultTabController(
+          length: 2,
+          child: SizedBox(
+            width: 720,
+            height: 480,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _HelpSection(title: '1. Connect your Drives', text: 'Select Add Google account and approve Google Drive access in your browser. Repeat this for every account you want to manage.'),
-                _HelpSection(title: '2. Browse everything together', text: 'All Drives combines connected accounts. Select one account for its My Drive. Double-click a folder to open it; use Back, Up or the path bar to return.'),
-                _HelpSection(title: '3. All, Folders and Files', text: 'All shows folders and files together. The other tabs filter the list. Search works across all indexed Drives and every count changes to match the results currently shown.'),
-                _HelpSection(title: '4. Manage files', text: 'Select one or more items, then use Download, Copy, Cut, Paste, Rename or Trash. For Cut/Copy, open the destination Drive or folder before selecting Paste.'),
-                _HelpSection(title: '5. Storage and activity', text: 'Storage cards show Google-reported capacity and usage. The history icon shows activity recorded on this device for the last 7 days.'),
-                _HelpSection(title: 'Privacy and safety', text: 'Files transfer directly between this device/browser and Google Drive. FarooqDrive does not operate an intermediate file-storage server. Moving an item to Trash uses Google Drive Trash.'),
+                TabBar(tabs: [Tab(text: 'English'), Tab(text: 'اردو')]),
+                SizedBox(height: 14),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _HelpSection(title: '1. Connect your Drives', text: 'Select Add Google account and approve Google Drive access in your browser. Repeat this for every account you want to manage.'),
+                            _HelpSection(title: '2. Browse everything together', text: 'All Drives combines connected accounts. Select one account for its My Drive. Double-click a folder to open it; use Back, Up or the path bar to return.'),
+                            _HelpSection(title: '3. All, Folders and Files', text: 'All shows folders and files together. The other tabs filter the list. Search works across all indexed Drives and every count changes to match the results currently shown.'),
+                            _HelpSection(title: '4. Manage files', text: 'Select one or more items, then use Download, Copy, Cut, Paste, Rename or Trash. For Cut or Copy, open the destination Drive or folder before selecting Paste.'),
+                            _HelpSection(title: '5. Storage and activity', text: 'Storage cards show Google-reported capacity and usage. The history icon shows activity recorded on this device for the last 7 days.'),
+                            _HelpSection(title: 'Privacy and safety', text: 'Files transfer directly between this device or browser and Google Drive. FarooqDrive does not operate an intermediate file-storage server.'),
+                          ],
+                        ),
+                      ),
+                      SingleChildScrollView(
+                        child: Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _HelpSection(title: '۱۔ اپنی گوگل ڈرائیوز منسلک کریں', text: 'گوگل اکاؤنٹ شامل کریں منتخب کریں اور براؤزر میں گوگل ڈرائیو کی اجازت منظور کریں۔ ہر مطلوبہ اکاؤنٹ کے لیے یہی عمل دہرائیں۔'),
+                              _HelpSection(title: '۲۔ تمام مواد ایک ساتھ دیکھیں', text: 'تمام ڈرائیوز منسلک اکاؤنٹس کا مواد یکجا دکھاتا ہے۔ کسی ایک اکاؤنٹ کی مائی ڈرائیو دیکھنے کے لیے اسے منتخب کریں۔ فولڈر کھولنے کے لیے اس پر دو مرتبہ کلک کریں۔'),
+                              _HelpSection(title: '۳۔ تمام، فولڈرز اور فائلیں', text: 'تمام والے حصے میں فولڈرز اور فائلیں اکٹھی نظر آتی ہیں۔ دوسرے حصے فہرست کو الگ کرتے ہیں۔ تلاش تمام فہرست شدہ ڈرائیوز میں کام کرتی ہے اور تعداد صرف موجودہ نتائج کے مطابق بدلتی ہے۔'),
+                              _HelpSection(title: '۴۔ فائلوں کا انتظام', text: 'ایک یا زیادہ اشیاء منتخب کرکے ڈاؤن لوڈ، نقل، کاٹیں، چسپاں کریں، نام تبدیل کریں یا کوڑے دان میں منتقل کریں۔ کاٹنے یا نقل کرنے کے بعد منزل والا فولڈر کھول کر چسپاں کریں۔'),
+                              _HelpSection(title: '۵۔ گنجائش اور سرگرمی', text: 'گنجائش کے خانے گوگل کی فراہم کردہ معلومات دکھاتے ہیں۔ تاریخ کا نشان اس آلے پر گزشتہ سات دنوں کی سرگرمی دکھاتا ہے۔'),
+                              _HelpSection(title: 'رازداری اور حفاظت', text: 'فائلیں براہ راست آپ کے آلے یا براؤزر اور گوگل ڈرائیو کے درمیان منتقل ہوتی ہیں۔ FarooqDrive کوئی درمیانی فائل ذخیرہ کرنے والا سرور استعمال نہیں کرتا۔'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
