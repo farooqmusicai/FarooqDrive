@@ -359,7 +359,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 850;
+    final compact = MediaQuery.sizeOf(context).width < 1100;
     return Scaffold(
       drawer: compact
           ? Drawer(
@@ -540,7 +540,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 19',
+                          'Version 20',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -1132,24 +1132,34 @@ class _FileViews extends StatelessWidget {
               ),
             ],
           );
-    final search = SizedBox(
-      width: 310,
-      child: SearchBar(
-        leading: const Icon(Icons.search),
+    final search = TextField(
+      onChanged: controller.setQuery,
+      decoration: InputDecoration(
         hintText: 'Search all Drives',
-        onChanged: controller.setQuery,
+        prefixIcon: const Icon(Icons.search),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffdce3ed)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xffdce3ed)),
+        ),
       ),
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       child: LayoutBuilder(
-        builder: (context, constraints) => constraints.maxWidth >= 1120
+        builder: (context, constraints) => constraints.maxWidth >= 1180
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(child: tabs),
                   const SizedBox(width: 12),
-                  search,
+                  SizedBox(width: 310, child: search),
                 ],
               )
             : Column(
@@ -1157,7 +1167,7 @@ class _FileViews extends StatelessWidget {
                 children: [
                   tabs,
                   const SizedBox(height: 8),
-                  Align(alignment: Alignment.centerRight, child: search),
+                  SizedBox(width: double.infinity, child: search),
                 ],
               ),
       ),
@@ -1491,6 +1501,9 @@ class _FileListState extends State<_FileList> {
             Column(
               children: [
                 ListTile(
+                  dense: true,
+                  minVerticalPadding: 4,
+                  visualDensity: const VisualDensity(vertical: -1),
                   leading: Checkbox(
                     value: controller.selectedKeys.contains(controller.keyOf(item)),
                     onChanged: (value) => controller.toggle(item, value ?? false),
@@ -1511,7 +1524,7 @@ class _FileListState extends State<_FileList> {
                           child: InkWell(
                             onTap: () => _openItem(context, item),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1520,7 +1533,8 @@ class _FileListState extends State<_FileList> {
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       color: Color(0xff174ea6),
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 if (controller.isExactDuplicate(item))
@@ -1529,7 +1543,7 @@ class _FileListState extends State<_FileList> {
                                     style: TextStyle(
                                       color: Color(0xffb3261e),
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   )
                                 else if (controller.isNameConflict(item))
@@ -1538,7 +1552,7 @@ class _FileListState extends State<_FileList> {
                                     style: TextStyle(
                                       color: Color(0xff9a5b00),
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],
@@ -1624,7 +1638,8 @@ class _FileListState extends State<_FileList> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: _accountColor(controller, item.accountId),
-                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -1647,7 +1662,10 @@ class _FileListState extends State<_FileList> {
                         width: sizeWidth,
                         child: Tooltip(
                           message: size(controller.sizeOf(item)),
-                          child: Text(size(controller.sizeOf(item))),
+                          child: Text(
+                            size(controller.sizeOf(item)),
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       ),
                       SizedBox(
@@ -1656,9 +1674,12 @@ class _FileListState extends State<_FileList> {
                           message: item.modifiedTime == null
                               ? '—'
                               : DateFormat.yMMMd().add_jms().format(item.modifiedTime!.toLocal()),
-                          child: Text(item.modifiedTime == null
-                              ? '—'
-                              : DateFormat.yMMMd().add_jm().format(item.modifiedTime!.toLocal())),
+                          child: Text(
+                            item.modifiedTime == null
+                                ? '—'
+                                : DateFormat.yMMMd().add_jm().format(item.modifiedTime!.toLocal()),
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       ),
                     ],
