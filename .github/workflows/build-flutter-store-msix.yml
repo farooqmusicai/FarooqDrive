@@ -1,0 +1,57 @@
+name: Build FarooqDrive Microsoft Store MSIX
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/flutter/**'
+      - '.github/workflows/build-flutter-store-msix.yml'
+
+jobs:
+  build-store-msix:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create Windows runner
+        working-directory: apps/flutter
+        shell: pwsh
+        run: |
+          flutter create --platforms=windows .
+          if (Test-Path test/widget_test.dart) { Remove-Item test/widget_test.dart }
+      - name: Restore official app icon
+        working-directory: apps/flutter
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes('assets/FarooqDrive.png', [Convert]::FromBase64String((Get-Content 'assets/FarooqDrive.png.base64' -Raw)))
+          magick assets/FarooqDrive.png -define icon:auto-resize=256,128,64,48,32,24,16 windows/runner/resources/app_icon.ico
+      - name: Install packages
+        working-directory: apps/flutter
+        run: flutter pub get
+      - name: Analyze
+        working-directory: apps/flutter
+        run: flutter analyze
+      - name: Test
+        working-directory: apps/flutter
+        run: flutter test
+      - name: Build Windows release
+        working-directory: apps/flutter
+        run: flutter build windows --release --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.FAROOQDRIVE_DESKTOP_CLIENT_ID }}
+      - name: Create unsigned Store MSIX
+        working-directory: apps/flutter
+        run: dart run msix:create
+      - name: Collect Store package
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem -Path apps/flutter/build/windows -Recurse -Filter *.msix | Select-Object -First 1
+          if (-not $package) { throw 'MSIX package was not generated.' }
+          Copy-Item $package.FullName FarooqDrive-Microsoft-Store-v20.0.0.0-x64.msix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FarooqDrive-Microsoft-Store-v20
+          path: FarooqDrive-Microsoft-Store-v20.0.0.0-x64.msix
+          if-no-files-found: error
