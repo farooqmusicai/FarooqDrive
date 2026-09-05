@@ -1,5 +1,7 @@
 # FarooqDrive terms of use
 
+Urdu version: [TERMS-URDU.md](TERMS-URDU.md)
+
 Last updated: 5 September 2026
 
 FarooqDrive is a Google Drive file-management client. By using it, the user agrees
