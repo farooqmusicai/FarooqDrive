@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'drive_controller.dart';
 import 'google_auth.dart';
 import 'models.dart';
+import 'native_file_icon.dart';
+import 'official_icon_data.dart';
 
 const _driveColors = <Color>[
   Color(0xff00a884),
@@ -409,8 +413,8 @@ class _Sidebar extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(9),
-                    child: Image.network(
-                      'FarooqDrive.jpg',
+                    child: Image.memory(
+                      base64Decode(officialFarooqDriveIconBase64),
                       width: 42,
                       height: 42,
                       fit: BoxFit.cover,
@@ -435,7 +439,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 15',
+                          'Version 16',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -992,16 +996,16 @@ class _FileViews extends StatelessWidget {
             runSpacing: 8,
             children: [
               ChoiceChip(
-                avatar: const Icon(Icons.insert_drive_file_outlined, size: 18),
-                label: Text('Files (${controller.fileCount})'),
-                selected: controller.viewMode == FileViewMode.files,
-                onSelected: (_) => controller.setViewMode(FileViewMode.files),
-              ),
-              ChoiceChip(
                 avatar: const Icon(Icons.folder_outlined, size: 18),
                 label: Text('Folders (${controller.folderCount})'),
                 selected: controller.viewMode == FileViewMode.folders,
                 onSelected: (_) => controller.setViewMode(FileViewMode.folders),
+              ),
+              ChoiceChip(
+                avatar: const Icon(Icons.insert_drive_file_outlined, size: 18),
+                label: Text('Files (${controller.fileCount})'),
+                selected: controller.viewMode == FileViewMode.files,
+                onSelected: (_) => controller.setViewMode(FileViewMode.files),
               ),
               ChoiceChip(
                 avatar: const Icon(Icons.content_copy, size: 18),
@@ -1281,10 +1285,11 @@ class _FileList extends StatelessWidget {
                   ),
                   title: Row(
                     children: [
-                      Icon(item.isFolder ? Icons.folder : Icons.insert_drive_file,
-                          color: item.isFolder
-                              ? const Color(0xffffb526)
-                              : const Color(0xff5f748d)),
+                      NativeFileIcon(
+                        fileName: item.name,
+                        isFolder: item.isFolder,
+                        size: 22,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         flex: 4,
