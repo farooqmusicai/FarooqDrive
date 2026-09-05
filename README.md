@@ -6,6 +6,16 @@
 
 This public GitHub Pages edition is provided for testing the Web application.
 
+## Screenshots
+
+### All Drives — ready to connect
+
+![FarooqDrive All Drives screen](docs/screenshots/farooqdrive-all-drives.png)
+
+### Connected accounts and file management
+
+![FarooqDrive connected Drive screen](docs/screenshots/farooqdrive-connected-drive.png)
+
 FarooqDrive presents multiple Google Drive accounts in one file-manager
 interface. This repository contains:
 
