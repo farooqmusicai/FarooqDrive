@@ -439,7 +439,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 17',
+                          'Version 18',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -996,6 +996,12 @@ class _FileViews extends StatelessWidget {
             runSpacing: 8,
             children: [
               ChoiceChip(
+                avatar: const Icon(Icons.select_all_outlined, size: 18),
+                label: Text('All (${controller.allItemCount})'),
+                selected: controller.viewMode == FileViewMode.all,
+                onSelected: (_) => controller.setViewMode(FileViewMode.all),
+              ),
+              ChoiceChip(
                 avatar: const Icon(Icons.folder_outlined, size: 18),
                 label: Text('Folders (${controller.folderCount})'),
                 selected: controller.viewMode == FileViewMode.folders,
@@ -1280,7 +1286,9 @@ class _FileListState extends State<_FileList> {
             Text(
               controller.accounts.isEmpty
                   ? 'Connect a Google account to begin.'
-                  : controller.viewMode == FileViewMode.files
+                  : controller.viewMode == FileViewMode.all
+                      ? 'No files or folders in this location.'
+                      : controller.viewMode == FileViewMode.files
                       ? 'No files in this folder.'
                       : controller.viewMode == FileViewMode.folders
                           ? 'No folders in this location.'
