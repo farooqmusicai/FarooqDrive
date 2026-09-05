@@ -1,16 +1,22 @@
 name: Deploy Web Edition to GitHub Pages
+
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["dist/**", ".github/workflows/deploy-web-pages.yml"]
+    paths:
+      - "apps/flutter/**"
+      - ".github/workflows/deploy-web-pages.yml"
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: pages
   cancel-in-progress: true
+
 jobs:
   deploy:
     environment:
@@ -19,11 +25,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
+      - uses: subosito/flutter-action@v2
         with:
-          enablement: true
+          channel: stable
+          cache: true
+      - name: Restore official icon
+        working-directory: apps/flutter
+        run: |
+          base64 --decode assets/FarooqDrive.png.base64 > assets/FarooqDrive.png
+          cp assets/FarooqDrive.png web/FarooqDrive.png
+      - name: Install packages
+        working-directory: apps/flutter
+        run: flutter pub get
+      - name: Analyze
+        working-directory: apps/flutter
+        run: flutter analyze
+      - name: Test
+        working-directory: apps/flutter
+        run: flutter test
+      - name: Build GitHub Pages edition
+        working-directory: apps/flutter
+        run: flutter build web --release --base-href /FarooqDrive/ --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: apps/flutter/build/web
       - id: deployment
         uses: actions/deploy-pages@v4
