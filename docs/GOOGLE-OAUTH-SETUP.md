@@ -21,10 +21,12 @@ policy، domain verification اور ممکنہ security assessment درکار ہ
 ## Windows Desktop Client
 
 1. **Clients > Create client > Desktop app** منتخب کریں۔
-2. بننے والا Client ID اور Client Secret صرف اپنی Windows app کی پہلی setup
-   screen میں درج کریں۔
-3. انہیں repository، screenshot، issue یا chat میں کبھی شامل نہ کریں۔
-4. Desktop OAuth loopback callback خود app عارضی localhost port پر سنبھالتی ہے۔
+2. بننے والا **Client ID** Windows app کی Settings میں درج کریں یا build کے وقت
+   `GOOGLE_DESKTOP_CLIENT_ID` دیں۔
+3. Desktop Client Secret app میں نہ دیں اور repository، screenshot، issue یا
+   chat میں کبھی شامل نہ کریں؛ installed app اسے محفوظ راز نہیں رکھ سکتی۔
+4. Desktop OAuth loopback callback اور PKCE خود app سنبھالتی ہے۔ Refresh token
+   Windows کی secure credential storage میں محفوظ ہوتا ہے۔
 
 ## Web Client
 
