@@ -27,7 +27,7 @@ class DriveController extends ChangeNotifier {
   String webClientId = '';
   String query = '';
   String sort = 'name';
-  FileViewMode viewMode = FileViewMode.all;
+  FileViewMode viewMode = FileViewMode.files;
   DriveClipboard? clipboard;
   bool loading = false;
   bool indexing = false;
@@ -86,7 +86,9 @@ class DriveController extends ChangeNotifier {
         .replaceAll(RegExp(r'[*?]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ');
     final searchTerms = normalized.split(' ').where((item) => item.isNotEmpty);
-    final useGlobalIndex = viewMode != FileViewMode.all ||
+    final duplicateView = viewMode == FileViewMode.exactDuplicates ||
+        viewMode == FileViewMode.nameConflicts;
+    final useGlobalIndex = duplicateView ||
         (normalized.isNotEmpty && indexReady);
     final source = useGlobalIndex ? indexedFiles : files;
     final searched = source.where((item) {
@@ -103,7 +105,8 @@ class DriveController extends ChangeNotifier {
     }).toList();
     final result = searched.where((item) {
       return switch (viewMode) {
-        FileViewMode.all => true,
+        FileViewMode.files => !item.isFolder,
+        FileViewMode.folders => item.isFolder,
         FileViewMode.exactDuplicates => isExactDuplicate(item),
         FileViewMode.nameConflicts => isNameConflict(item),
       };
@@ -142,6 +145,8 @@ class DriveController extends ChangeNotifier {
       indexedFiles.where(isExactDuplicate).map((item) => item.name.toLowerCase()).toSet().length;
   int get nameConflictCount =>
       indexedFiles.where(isNameConflict).map((item) => item.name.toLowerCase()).toSet().length;
+  int get fileCount => files.where((item) => !item.isFolder).length;
+  int get folderCount => files.where((item) => item.isFolder).length;
 
   Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
@@ -333,7 +338,9 @@ class DriveController extends ChangeNotifier {
   Future<void> setViewMode(FileViewMode value) => _guard(() async {
     viewMode = value;
     selectedKeys.clear();
-    if (value != FileViewMode.all && !indexReady) {
+    if ((value == FileViewMode.exactDuplicates ||
+            value == FileViewMode.nameConflicts) &&
+        !indexReady) {
       await _buildGlobalIndex();
     }
   });
