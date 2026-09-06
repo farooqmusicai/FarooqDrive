@@ -856,7 +856,10 @@ class _DriveTile extends StatelessWidget {
   final VoidCallback? onDisconnect;
 
   @override
-  Widget build(BuildContext context) => ListTile(
+  Widget build(BuildContext context) => Tooltip(
+        message: '$title\n$subtitle',
+        waitDuration: const Duration(milliseconds: 350),
+        child: ListTile(
         selected: selected,
         selectedTileColor: const Color(0xff203a57),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -888,7 +891,7 @@ class _DriveTile extends StatelessWidget {
                 icon: const Icon(Icons.link_off, color: Color(0xffff8a80)),
               ),
         onTap: onTap,
-      );
+      ));
 }
 
 class _Header extends StatelessWidget {

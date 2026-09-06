@@ -4,7 +4,7 @@
 
 Choose Add account, select Google Drive or Microsoft OneDrive, and approve access in the system browser. Repeat for other accounts. Personal and permitted work/school OneDrive accounts are supported when provisioned; organization policy may require an administrator. There is no fixed account-count cap in FarooqDrive, but quotas, service throttling and device resources apply.
 
-Select an account to open its root. Expand sidebar arrows to browse folders and subfolders on demand. Double-click folders, use breadcrumbs or Back/Up, and pin the sidebar when needed. All Drives combines account listings and provider-reported storage; it does not create a new pooled physical disk. Full-text searches here mean searching metadata such as names and paths, not the contents of documents.
+Hover over an account name or email to see its full name and email address. Select an account to open its root. Expand sidebar arrows to browse folders and subfolders on demand. Double-click folders, use breadcrumbs or Back/Up, and pin the sidebar when needed. All Drives combines account listings and provider-reported storage; it does not create a new pooled physical disk. Full-text searches here mean searching metadata such as names and paths, not the contents of documents.
 
 ## Appearance and sorting
 
