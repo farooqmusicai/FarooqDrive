@@ -75,7 +75,8 @@ class OneDriveApi implements CloudDriveApi {
   Future<Map<String, dynamic>> _json(DriveAccount account, Uri uri) async {
     final response = await _get(account, uri);
     if (response.statusCode != 200) throw const DriveApiException('Unexpected OneDrive response.');
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    try { return jsonDecode(response.body) as Map<String, dynamic>; }
+    catch (_) { throw const DriveApiException('OneDrive returned unreadable metadata.'); }
   }
 
   static DriveItem parseItem(Map<String, dynamic> data, DriveAccount account) {

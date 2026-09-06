@@ -93,7 +93,7 @@ class MicrosoftAccountAuthorizer {
       r'$select': 'id,displayName,mail,userPrincipalName',
     }), headers: {'Authorization': 'Bearer ${token['access_token']}'}).timeout(const Duration(seconds: 45));
     if (response.statusCode != 200) throw const DriveApiException('Could not read Microsoft account profile.');
-    final profile = jsonDecode(response.body) as Map<String, dynamic>;
+    final profile = _decode(response.body);
     final id = profile['id'] as String?;
     if (id == null || id.isEmpty) throw const DriveApiException('Microsoft account identity is missing.');
     final email = profile['mail'] as String? ?? profile['userPrincipalName'] as String? ?? 'Microsoft account';
@@ -119,9 +119,14 @@ class MicrosoftAccountAuthorizer {
     if (response.statusCode != 200) {
       throw DriveApiException('Microsoft session could not be renewed or authorized (${response.statusCode}). Sign in again; work accounts may require administrator consent.', statusCode: response.statusCode);
     }
-    final token = jsonDecode(response.body) as Map<String, dynamic>;
+    final token = _decode(response.body);
     if (token['access_token'] is! String) throw const DriveApiException('Microsoft returned no access token.');
     return token;
+  }
+
+  static Map<String, dynamic> _decode(String body) {
+    try { return jsonDecode(body) as Map<String, dynamic>; }
+    catch (_) { throw const DriveApiException('Microsoft returned an unreadable authentication response.'); }
   }
 
   Future<String> accessToken(DriveAccount account, {bool force = false}) async {

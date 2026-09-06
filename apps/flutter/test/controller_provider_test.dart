@@ -113,5 +113,11 @@ void main() {
     expect(microsoft.verifications, 1);
     expect(google.trashes + microsoft.trashes, 0);
     expect(google.scans + microsoft.scans, 0);
+    controller.clipboard = DriveClipboard(ClipboardMode.move, controller.clipboard!.items);
+    await controller.paste();
+    expect(controller.error, contains('temporarily disabled'));
+    expect(google.downloads, 1);
+    expect(microsoft.uploads, 1);
+    expect(google.trashes + microsoft.trashes, 0);
   });
 }

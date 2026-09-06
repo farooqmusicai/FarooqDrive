@@ -687,6 +687,9 @@ class DriveController extends ChangeNotifier {
         if (clip == null || destination == null) {
           throw const DriveApiException('Open the destination folder first.');
         }
+        if (clip.mode == ClipboardMode.move) {
+          throw const DriveApiException('Move is temporarily disabled in this development build until destination verification and your final Yes/No confirmation are implemented. Use Copy; your source will remain.');
+        }
         for (final item in clip.items) {
           final source = accountById(item.accountId)!;
           if (item.isFolder) {

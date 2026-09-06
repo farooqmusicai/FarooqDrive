@@ -12,7 +12,7 @@ This is a development build from onedrive-foundation. Do not submit it to Micros
 7. Add a second account; confirm both Microsoft and Google accounts remain distinct.
 8. Disconnect the test Microsoft account and reopen. Its saved session should be gone; cloud files remain.
 
-Read-only means OneDrive upload, copy, move, rename and Trash are deliberately blocked in this build. The existing Google transfer behavior has not yet received the new final Yes/No safeguard; do not test Google Move with valuable files in this development build.
+Read-only means OneDrive upload, copy, move, rename and Trash are deliberately blocked in this build. Move/Cut-Paste source removal is temporarily blocked for ALL providers until the final verification and Yes/No safeguards are implemented. Google Copy remains available. Explicit Google Trash remains a separate existing action.
 
 ## Data and limits
 - Files and metadata are requested directly from Microsoft Graph on the user's device.
@@ -26,4 +26,4 @@ Read-only means OneDrive upload, copy, move, rename and Trash are deliberately b
 ## پاکستانی اردو
 یہ صرف Windows کا نجی OneDrive test ہے۔ Add account سے Microsoft OneDrive منتخب کرکے browser میں login کریں، folders اور quota دیکھیں، پھر 32 MiB سے چھوٹی آزمائشی فائل download کریں۔ App بند کرکے دوبارہ کھولیں اور account کی بحالی چیک کریں۔
 
-اس build میں OneDrive پر upload، move، copy یا delete دستیاب نہیں۔ بڑی فائلوں کا عارضی disk folder اور اصل فائل ہٹانے سے پہلے آخری Yes/No والا مرحلہ ابھی تیار نہیں۔ موجودہ Google Move میں بھی نیا حفاظتی مرحلہ ابھی شامل نہیں؛ قیمتی فائلوں پر آزمائش نہ کریں۔ Microsoft Store پر یہ build جمع نہ کروائیں۔
+اس build میں OneDrive پر upload، move، copy یا delete دستیاب نہیں۔ بڑی فائلوں کا عارضی disk folder اور اصل فائل ہٹانے سے پہلے آخری Yes/No والا مرحلہ ابھی تیار نہیں۔ اس حفاظتی مرحلے کے تیار ہونے تک تمام providers کے Move اور Cut/Paste عارضی طور پر بند ہیں؛ Google Copy دستیاب ہے۔ Microsoft Store پر یہ build جمع نہ کروائیں۔

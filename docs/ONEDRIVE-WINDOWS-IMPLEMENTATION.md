@@ -9,6 +9,7 @@ Status: Provider routing/lazy indexing passed all checks and Windows packaging i
 - OneDrive root/folder paging, BFS indexing only on user request, quota, bounded retries and token-safe redirect downloads.
 - Explicit private 32 MiB download cap until disk-backed transfer is implemented. This is a conservative test limit, not a provider limit.
 - OneDrive mutation and cross-provider transfer endpoints throw read-only errors. No live OneDrive files have been changed by this work.
+- All-provider Move/Cut-Paste is temporarily blocked before any transfer action until the new verification and final confirmation gate exists. This prevents the legacy automatic source cleanup during development.
 - Windows Add account chooser and provider labels; Web remains on its existing Google authentication. Android branch remains unchanged.
 - New mocked tests cover PKCE exchange, invalid state, secure restoration, rotated refresh tokens, disconnect, quota 401 renewal, paging-host rejection and download token separation.
 - API consent and real Windows browser callback still need owner's test. Shared remote items, packages, cache transfers, final Move confirmation and public-release documentation remain later gates.
