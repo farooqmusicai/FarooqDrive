@@ -64,6 +64,64 @@ class DriveController extends ChangeNotifier {
   int _indexGeneration = 0;
   bool _disposed = false;
   String scanStatus = '';
+  bool indexStale = false;
+  DateTime? indexScannedAt;
+  Future<void> _indexSave = Future<void>.value();
+
+  Future<void> rescan() => _buildGlobalIndex();
+
+  Future<void> _saveIndex() {
+    final snapshot = <String, dynamic>{
+      'date': indexScannedAt?.toIso8601String(), 'stale': indexStale,
+      'exact': _exactKeys.toList(), 'conflicts': _conflictKeys.toList(),
+      'sizes': Map<String, int>.of(folderSizes),
+      'files': indexedFiles.map((i) => <String, dynamic>{
+        'id': i.id, 'name': i.name, 'mimeType': i.mimeType, 'isFolder': i.isFolder,
+        'accountId': i.accountId, 'accountEmail': i.accountEmail, 'size': i.size,
+        'modifiedTime': i.modifiedTime?.toIso8601String(), 'parents': i.parents,
+        'canDownload': i.canDownload, 'ownedByMe': i.ownedByMe, 'location': i.location,
+      }).toList(),
+    };
+    _indexSave = _indexSave.then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('farooqdrive.scanIndex.v1', await compute(jsonEncode, snapshot));
+    }).catchError((Object _) {
+      if (!_disposed) { scanStatus = 'Index available this session; could not save it on this device.'; notifyListeners(); }
+    });
+    return _indexSave;
+  }
+
+  Future<void> restoreSavedIndex() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedSort = prefs.getString('farooqdrive.sort');
+      if (['name','account','size','modified','type'].contains(savedSort)) sort = savedSort!;
+      sortAscending = prefs.getBool('farooqdrive.sortAscending') ?? true;
+      final raw = prefs.getString('farooqdrive.scanIndex.v1');
+      if (raw == null) return;
+      final data = (await compute(jsonDecode, raw)) as Map<String, dynamic>;
+      final ids = accounts.map((a) => a.id).toSet();
+      final restored = (data['files'] as List).cast<Map<String, dynamic>>().where((d) => ids.contains(d['accountId'])).map((d) => DriveItem(
+        id: d['id'] as String, name: d['name'] as String, mimeType: d['mimeType'] as String,
+        isFolder: d['isFolder'] as bool, accountId: d['accountId'] as String,
+        accountEmail: d['accountEmail'] as String, size: d['size'] as int?,
+        modifiedTime: DateTime.tryParse(d['modifiedTime'] as String? ?? ''),
+        parents: (d['parents'] as List).cast<String>(), canDownload: d['canDownload'] as bool,
+        ownedByMe: d['ownedByMe'] as bool, location: d['location'] as String)).toList();
+      if (_disposed) return;
+      indexedFiles..clear()..addAll(restored);
+      final keys = restored.map(keyOf).toSet();
+      _exactKeys..clear()..addAll((data['exact'] as List).cast<String>().where(keys.contains));
+      _conflictKeys..clear()..addAll((data['conflicts'] as List).cast<String>().where(keys.contains));
+      folderSizes..clear()..addAll(Map<String,int>.from(data['sizes'] as Map)..removeWhere((k,v) => !keys.contains(k)));
+      indexScannedAt = DateTime.tryParse(data['date'] as String? ?? '');
+      indexReady = indexScannedAt != null;
+      indexStale = true;
+      scanStatus = 'Saved index restored. Rescan to check for cloud changes.';
+      notifyListeners();
+    } catch (_) { /* Invalid cache does not prevent sign-in or browsing. */ }
+  }
+
   final Set<String> _exactKeys = {};
   final Set<String> _conflictKeys = {};
   @override
@@ -226,6 +284,7 @@ class DriveController extends ChangeNotifier {
           FolderCrumb(apiFor(account).rootFolderId, apiFor(account).rootFolderLabel),
         ];
       }
+      await restoreSavedIndex();
       if (accounts.isNotEmpty) {
         selectedAccountId = accounts.first.id;
         await _refreshQuotas();
@@ -470,7 +529,16 @@ class DriveController extends ChangeNotifier {
   void setSort(String value) {
     sortAscending = sort == value ? !sortAscending : true;
     sort = value;
+    _saveSort();
     notifyListeners();
+  }
+
+  Future<void> _saveSort() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('farooqdrive.sort', sort);
+      await prefs.setBool('farooqdrive.sortAscending', sortAscending);
+    } catch (_) { /* Sorting remains available this session. */ }
   }
 
   Future<void> setViewMode(FileViewMode value) async {
@@ -522,7 +590,10 @@ class DriveController extends ChangeNotifier {
       _exactKeys..clear()..addAll(exact);
       _conflictKeys..clear()..addAll(conflicts);
       indexReady = true;
+      indexStale = false;
+      indexScannedAt = DateTime.now();
       scanStatus = 'Scan complete — select a duplicate tab to see results.';
+      await _saveIndex();
     } catch (_) {
       if (!_disposed) scanStatus = 'Scan failed. Check account access and try again.';
     } finally {
@@ -630,7 +701,13 @@ class DriveController extends ChangeNotifier {
     indexedFiles.removeWhere((item) => item.accountId == accountId);
     paths.remove(accountId);
     if (selectedAccountId == accountId) selectedAccountId = null;
+    indexedFiles.removeWhere((item) => item.accountId == accountId);
+    final remainingKeys = indexedFiles.map(keyOf).toSet();
+    _exactKeys.removeWhere((key) => !remainingKeys.contains(key));
+    _conflictKeys.removeWhere((key) => !remainingKeys.contains(key));
+    folderSizes.removeWhere((key, value) => !remainingKeys.contains(key));
     _invalidateIndex();
+    await _saveIndex();
     selectedKeys.clear();
     await _loadFiles();
     await _recordActivity('Drive disconnected', email, accountEmail: email);
@@ -843,12 +920,12 @@ class DriveController extends ChangeNotifier {
 
   void _invalidateIndex() {
     _indexGeneration++;
-    _exactKeys.clear();
-    _conflictKeys.clear();
     treeRevision++;
-    indexReady = false;
-    indexedFiles.clear();
-    folderSizes.clear();
+    if (indexReady) {
+      indexStale = true;
+      scanStatus = 'Saved scan results retained — press Rescan to update.';
+      _saveIndex();
+    }
   }
 
   Future<void> clearActivityLog() async {

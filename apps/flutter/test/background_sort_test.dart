@@ -60,4 +60,29 @@ void main() {
     expect(c.indexedFiles,isEmpty);
     expect(c.indexing,isFalse);
   });
+  test('saved index survives refresh, tab changes and controller restart', () async {
+    final api = RecordingApi(CloudProviderType.google);
+    api.items.addAll([item('1','A',3,'a@x',2020),item('2','A',3,'a@x',2020)]);
+    final c = DriveController(api: api);
+    addTearDown(c.dispose);
+    c.accounts.add(account('g',CloudProviderType.google));
+    await c.selectAccount('g');
+    await c.rescan();
+    await c.refresh();
+    await c.setViewMode(FileViewMode.exactDuplicates);
+    expect(c.exactDuplicateCount,2);
+    expect(api.scans,1);
+    final restored = DriveController(api: api);
+    addTearDown(restored.dispose);
+    restored.accounts.add(account('g',CloudProviderType.google));
+    await restored.restoreSavedIndex();
+    expect(restored.indexReady,isTrue);
+    expect(restored.exactDuplicateCount,2);
+    expect(restored.indexStale,isTrue);
+    api.items.clear();
+    await restored.rescan();
+    expect(restored.exactDuplicateCount,0);
+    expect(restored.indexStale,isFalse);
+  });
+
 }

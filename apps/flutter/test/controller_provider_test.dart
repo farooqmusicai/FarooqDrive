@@ -95,9 +95,12 @@ void main() {
     expect(api.scans, 1);
     await controller.refresh();
     expect(api.scans, 1);
-    expect(controller.indexReady, isFalse);
+    expect(controller.indexReady, isTrue);
+    expect(controller.indexStale, isTrue);
     expect(controller.indexedFiles, isEmpty);
     await controller.setViewMode(FileViewMode.exactDuplicates);
+    expect(api.scans, 1);
+    await controller.rescan();
     expect(api.scans, 2);
   });
 

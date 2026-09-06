@@ -93,8 +93,8 @@ class _FarooqDriveAppState extends State<FarooqDriveApp> {
   void initState() {
     super.initState();
     SharedPreferences.getInstance().then((prefs) {
-      if (mounted) appThemeMode.value = prefs.getBool('farooqdrive.darkMode') == null
-        ? ThemeMode.system : prefs.getBool('farooqdrive.darkMode')! ? ThemeMode.dark : ThemeMode.light;
+      if (mounted) { appThemeMode.value = prefs.getBool('farooqdrive.darkMode') == null
+        ? ThemeMode.system : prefs.getBool('farooqdrive.darkMode')! ? ThemeMode.dark : ThemeMode.light; }
     });
   }
   ThemeData theme(Brightness brightness) => ThemeData(
@@ -411,7 +411,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _HelpSection(title: 'Appearance, sorting and background scans', text: 'Use the sun/moon button beside History to switch Light/Dark mode; your choice is saved on this device. Click Name, Account, Size or Modified to sort ascending; click again to reverse. Folders remain first. View offers eight Explorer-style layouts. Duplicate scans run in the background: continue browsing and working, then select the results tab when ready. Changes to files or connected accounts invalidate an in-progress scan; run it again. Exact duplicates means matching name and reported size, not verified identical content; same-name results flag different or unknown sizes. Scanning never deletes files.'),
+                            _HelpSection(title: 'Appearance, sorting and background scans', text: 'Use the sun/moon button beside History to switch Light/Dark mode; your choice is saved on this device. Click Name, Account, Size or Modified to sort ascending; click again to reverse. Folders remain first. View offers eight Explorer-style layouts. Duplicate scans run in the background: continue browsing and working, then select the results tab when ready. A saved index survives tab changes, ordinary Refresh and app restarts. Press Rescan all to replace it; old results remain visible while scanning. File changes mark the index as outdated. An in-progress scan affected by changes is discarded. Sorting is shared across all tabs and remembered on this device. Exact duplicates means matching name and reported size, not verified identical content; same-name results flag different or unknown sizes. Scanning never deletes files.'),
                             _HelpSection(title: '1. Connect your Drives', text: 'Select Add account and choose Google Drive or, on Windows, Microsoft OneDrive. Approve access in your browser. Repeat for each account.'),
                             _HelpSection(title: 'Windows transfers and limits', text: 'Copy/Paste and internal drag-and-drop use a temporary disk file, sequential uploads and full SHA-256 destination verification. Transfer limit: 1 GiB per file, 10,000 items and 64 folder levels per batch. Keep enough free disk space for the largest file plus normal Windows needs. Transfer traffic uses your internet connection, including a second destination download for verification. Google-native same-account copies preserve their format and retain originals; between accounts, supported documents export to Office formats or PNG. Move asks Yes/No after verification. Only unchanged OneDrive source files support conditional Recycle Bin cleanup; Google source files and original folder containers remain. No keeps both copies. Interrupted uploads may leave destination copies; retries create new copies. Automatic resume after restarting is not available. Windows file-picker uploads stream through disk and verify the destination. Download-to-PC still uses memory; OneDrive download limit is 32 MiB. Account connections have no fixed app cap; service quotas, organization policies and device resources apply.'),
                             _HelpSection(title: 'Temporary storage', text: 'Transfer cache: ${TransferSpool.cachePath}. Files are not encrypted by FarooqDrive in this folder. Completed or failed jobs remove their own cache files; an app crash may leave job folders here. Close FarooqDrive before manually removing leftover job folders. Transfers never delete original local files.'),
@@ -429,7 +429,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _HelpSection(title: 'رنگ، ترتیب اور پس منظر میں جانچ', text: 'سورج یا چاند کے بٹن سے دن یا رات کا رنگ منتخب کریں؛ انتخاب محفوظ رہتا ہے۔ Name، Account، Size یا Modified پر کلک سے ترتیب بدلتی ہے؛ دوبارہ کلک سے الٹ جاتی ہے۔ فولڈرز پہلے رہتے ہیں۔ نقل کی جانچ پس منظر میں چلتی ہے؛ آپ کام جاری رکھ سکتے ہیں۔ مکمل ہونے پر نتائج کا ٹیب منتخب کریں۔ دوران جانچ فائلیں تبدیل ہوں تو نئی جانچ کریں۔ Exact duplicates صرف یکساں نام اور سائز ہیں، مواد کی یکسانیت کی ضمانت نہیں۔ جانچ خود کوئی فائل حذف نہیں کرتی۔'),
+                              _HelpSection(title: 'رنگ، ترتیب اور پس منظر میں جانچ', text: 'سورج یا چاند کے بٹن سے دن یا رات کا رنگ منتخب کریں؛ انتخاب محفوظ رہتا ہے۔ Name، Account، Size یا Modified پر کلک سے ترتیب بدلتی ہے؛ دوبارہ کلک سے الٹ جاتی ہے۔ فولڈرز پہلے رہتے ہیں۔ نقل کی جانچ پس منظر میں چلتی ہے؛ آپ کام جاری رکھ سکتے ہیں۔ مکمل ہونے پر نتائج کا ٹیب منتخب کریں۔ نتائج ٹیب بدلنے، Refresh یا ایپ دوبارہ کھولنے پر محفوظ رہتے ہیں۔ Rescan all سے نیا index بنتا ہے۔ تبدیلی پر نتائج پرانے نشان زد ہوتے ہیں۔ ترتیب تمام ٹیبز میں ایک جیسی اور محفوظ رہتی ہے۔ Exact duplicates صرف یکساں نام اور سائز ہیں، مواد کی یکسانیت کی ضمانت نہیں۔ جانچ خود کوئی فائل حذف نہیں کرتی۔'),
                               _HelpSection(title: '۱۔ اپنی گوگل ڈرائیوز منسلک کریں', text: 'گوگل اکاؤنٹ شامل کریں منتخب کریں اور براؤزر میں گوگل ڈرائیو کی اجازت منظور کریں۔ ہر مطلوبہ اکاؤنٹ کے لیے یہی عمل دہرائیں۔'),
                               _HelpSection(title: 'ونڈوز Copy اور Move', text: 'OneDrive بھی Add account سے شامل کریں۔ بائیں تیر سے فولڈر کھولیں اور فائل کو مطلوبہ فولڈر پر drag کریں۔ Move پہلے نقل بناتا ہے، پھر مکمل SHA-256 جانچ کے بعد آخری Yes/No پوچھتا ہے۔ No پر دونوں نقول رہتی ہیں۔ صرف غیر تبدیل شدہ OneDrive فائلیں محفوظ شرط کے ساتھ Recycle Bin میں جا سکتی ہیں؛ Google کی اصل فائلیں اور اصل فولڈرز برقرار رہتے ہیں۔'),
                               _HelpSection(title: 'عارضی جگہ اور حدود', text: 'اس نسخے میں فی فائل 1 GiB، فی کام 10,000 اشیاء اور 64 فولڈر سطحوں کی حد ہے۔ سب سے بڑی فائل کے لیے ہارڈ ڈسک میں خالی جگہ رکھیں۔ FarooqDrive کی عارضی نقل encrypted نہیں ہے۔ کام کے بعد عارضی نقل مٹتی ہے؛ crash پر بچی ہوئی job folders ایپ بند کرکے ہٹائیں۔ دوبارہ شروع ہونے پر خودکار resume موجود نہیں۔ منزل کی تصدیق کے لیے فائل دوبارہ download ہوتی ہے، اس لیے انٹرنیٹ بھی استعمال ہوتا ہے۔ Accounts کی کوئی مقررہ app حد نہیں۔'),
@@ -1300,6 +1300,9 @@ class _FileViews extends StatelessWidget {
                 selected: controller.viewMode == FileViewMode.files,
                 onSelected: (_) => controller.setViewMode(FileViewMode.files),
               ),
+              ActionChip(avatar: const Icon(Icons.manage_search, size: 18),
+                label: Text(controller.indexing ? 'Scan running…' : controller.indexReady ? 'Rescan all' : 'Scan all'),
+                onPressed: controller.indexing ? null : controller.rescan),
               ChoiceChip(
                 avatar: const Icon(Icons.content_copy, size: 18),
                 label: Text(controller.indexing
@@ -1796,15 +1799,15 @@ class _FileListState extends State<_FileList> {
                                   Text(
                                     item.name,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xff174ea6),
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.primary,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 if (controller.isExactDuplicate(item))
                                   const Text(
-                                    'Exact duplicate on another Drive',
+                                    'Matching name and size',
                                     style: TextStyle(
                                       color: Color(0xffb3261e),
                                       fontSize: 11,
