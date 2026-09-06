@@ -116,7 +116,7 @@ class DriveController extends ChangeNotifier {
       _conflictKeys..clear()..addAll((data['conflicts'] as List).cast<String>().where(keys.contains));
       folderSizes..clear()..addAll(Map<String,int>.from(data['sizes'] as Map)..removeWhere((k,v) => !keys.contains(k)));
       indexScannedAt = DateTime.tryParse(data['date'] as String? ?? '');
-      indexReady = indexScannedAt != null;
+      indexReady = indexScannedAt != null && accounts.isNotEmpty;
       indexStale = true;
       scanStatus = 'Saved index restored. Rescan to check for cloud changes.';
       notifyListeners();
@@ -341,6 +341,7 @@ class DriveController extends ChangeNotifier {
       accounts[accounts.indexWhere((account) => account.id == added.id)] = updated;
     } catch (_) { error = 'OneDrive quota is unavailable. Check that OneDrive is provisioned and permitted for this account.'; }
     await _loadFiles();
+    if (kIsWeb) await restoreSavedIndex();
     await _recordActivity('Microsoft OneDrive connected', added.email, accountEmail: added.email);
   }, message: 'Signing in to Microsoft…');
 
@@ -383,6 +384,7 @@ class DriveController extends ChangeNotifier {
         selectedAccountId = added.id;
         _invalidateIndex();
         await _loadFiles();
+        if (kIsWeb) await restoreSavedIndex();
         await _recordActivity(
           'Drive connected',
           added.email,

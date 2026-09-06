@@ -77,6 +77,8 @@ void main() {
     expect(api.scans,1);
     final restored = DriveController(api: api);
     addTearDown(restored.dispose);
+    await restored.restoreSavedIndex();
+    expect(restored.indexReady,isFalse); // No connected account is not a completed empty scan.
     restored.accounts.add(account('g',CloudProviderType.google));
     await restored.restoreSavedIndex();
     expect(restored.indexReady,isTrue);
