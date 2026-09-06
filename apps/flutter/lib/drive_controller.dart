@@ -798,7 +798,7 @@ class DriveController extends ChangeNotifier {
   Future<void> uploadFromStream(String name, Stream<List<int>> input, int size) => _guard(() async {
     final account = selectedAccount;
     if (account == null) throw const DriveApiException('Open the destination Drive first.');
-    if (size > VerifiedTransfer.fileLimit) throw const DriveApiException('Private upload limit is 1 GiB per file.');
+    if (size > VerifiedTransfer.fileLimit) throw const DriveApiException(kIsWeb ? 'Web upload limit is 32 MiB per file.' : 'Windows upload limit is 1 GiB per file.');
     final parent = currentFolderId;
     final provider = apiFor(account);
     final spool = await TransferSpool.create();
@@ -837,7 +837,7 @@ class DriveController extends ChangeNotifier {
       transferResult = 'Upload interrupted. Local original retained. A partial or completed destination copy may remain; see Activity for the error.';
       rethrow;
     } catch (_) {
-      throw const DriveApiException('Upload interrupted. Check temporary disk space and your connection. Local original retained.');
+      throw const DriveApiException(kIsWeb ? 'Upload interrupted. Check browser memory, connection and provider access. Local original retained.' : 'Upload interrupted. Check temporary disk space and your connection. Local original retained.');
     } finally {
       transferActive = false;
       await spool.close();
@@ -852,7 +852,18 @@ class DriveController extends ChangeNotifier {
     notifyListeners();
     try {
       final account = accountById(item.accountId)!;
-      final bytes = await apiFor(account).downloadBytes(account, item);
+      final Uint8List bytes;
+      if (kIsWeb) {
+        final spool = await TransferSpool.create();
+        try {
+          if ((item.size ?? 0) > VerifiedTransfer.fileLimit) throw const DriveApiException('Web downloads support up to 32 MiB per file.');
+          final source = await apiFor(account).openTransfer(account, item);
+          await spool.write(source.stream, source.length, (_) {});
+          bytes = await spool.readRange(0, spool.length);
+        } finally { await spool.close(); }
+      } else {
+        bytes = await apiFor(account).downloadBytes(account, item);
+      }
       await _recordActivity(
         'Downloaded',
         item.name,

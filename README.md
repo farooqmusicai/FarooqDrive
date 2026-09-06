@@ -1,3 +1,7 @@
+# Web 21.1 — Google Drive and OneDrive
+
+The web update includes the Explorer layouts, Light/Dark mode, remembered sorting, account tooltips, background scan indexes and verified transfers. Browser transfers are limited to 32 MiB per file. [Setup, privacy, limits and release acceptance](docs/WEB-21.1-UPDATE.md). Android, iPhone/iPad and macOS apps are coming soon.
+
 # FarooqDrive
 
 ## Windows 21.1 — Google Drive and Microsoft OneDrive

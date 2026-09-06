@@ -3,7 +3,7 @@ name: Build Flutter Web
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, web-update-21-1]
     paths:
       - 'apps/flutter/**'
       - '.github/workflows/build-flutter-web.yml'
@@ -13,6 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build Microsoft browser authentication
+        working-directory: apps/flutter/web-auth
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          node --test auth.test.mjs
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -33,7 +42,7 @@ jobs:
         run: flutter test
       - name: Build Web
         working-directory: apps/flutter
-        run: flutter build web --release --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
+        run: flutter build web --release --base-href /FarooqDrive/ --dart-define=MICROSOFT_WEB_CLIENT_ID=${{ secrets.FAROOQDRIVE_MICROSOFT_CLIENT_ID }} --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
       - uses: actions/upload-artifact@v4
         with:
           name: farooqdrive-flutter-web

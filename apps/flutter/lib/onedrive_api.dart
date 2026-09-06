@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -165,6 +166,17 @@ class OneDriveApi extends CloudDriveApi {
 
   @override
   Future<Uint8List> downloadBytes(DriveAccount account, DriveItem item) async {
+    if (kIsWeb) {
+      if (item.size == null || item.size! > privateDownloadLimit) throw const DriveApiException('Web downloads support known sizes up to 32 MiB.');
+      final download = await openTransfer(account,item);
+      final bytes = BytesBuilder(copy:false);
+      await for(final chunk in download.stream) {
+        if(bytes.length+chunk.length>privateDownloadLimit) throw const DriveApiException('Web download exceeded 32 MiB.');
+        bytes.add(chunk);
+      }
+      if(bytes.length != item.size) throw const DriveApiException('Download incomplete.');
+      return bytes.takeBytes();
+    }
     if (item.isFolder || !item.canDownload) throw const DriveApiException('Open this item on the provider website.');
     if (item.size == null || item.size! > privateDownloadLimit) {
       throw const DriveApiException('This private OneDrive test supports downloads up to 32 MiB with a known size. Larger downloads will use the upcoming disk cache.');
@@ -231,6 +243,17 @@ class OneDriveApi extends CloudDriveApi {
   @override
   Future<TransferDownload> openTransfer(DriveAccount account, DriveItem item) async {
     if (item.isFolder || !item.canDownload) throw const DriveApiException('This OneDrive item cannot be downloaded.');
+    if (kIsWeb) {
+      final data = await _json(account,Uri.parse('$_base/me/drive/${_item(item.id)}').replace(queryParameters:{r'$select':'id,@microsoft.graph.downloadUrl'}));
+      final location=data['@microsoft.graph.downloadUrl'] as String?;
+      if(location==null) throw const DriveApiException('OneDrive browser download URL unavailable.');
+      final uri=Uri.parse(location);
+      if(uri.scheme!='https' || uri.userInfo.isNotEmpty || uri.port!=443) throw const DriveApiException('Invalid OneDrive download URL.');
+      // Preauthorized content URL: no Graph bearer header, avoiding /content CORS redirects.
+      final response=await _client.send(http.Request('GET',uri)).timeout(const Duration(seconds:60));
+      if(response.statusCode!=200) throw const DriveApiException('OneDrive browser download failed.');
+      return TransferDownload(item.name,item.mimeType,response.stream,item.size);
+    }
     final metadata = await _get(account, Uri.parse('$_base/me/drive/${_item(item.id)}/content'));
     final location = metadata.headers['location'];
     if (metadata.statusCode != 302 || location == null) throw const DriveApiException('OneDrive download link unavailable.');

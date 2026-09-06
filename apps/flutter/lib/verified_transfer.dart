@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'cloud_drive_api.dart';
 import 'models.dart';
@@ -19,7 +20,7 @@ class VerifiedTransfer {
   final CloudDriveApi Function(DriveAccount) provider;
   final void Function(String) progress;
   final void Function() checkCancelled;
-  static const fileLimit = 1024 * 1024 * 1024;
+  static const fileLimit = kIsWeb ? 32 * 1024 * 1024 : 1024 * 1024 * 1024;
   final List<VerifiedCopy> copies = [];
   int nativeCopies = 0;
   final Set<String> _seen = {};
@@ -31,7 +32,7 @@ class VerifiedTransfer {
     }
     final snapshot = await provider(account).snapshot(account, item.id);
     final current = snapshot.item;
-    if (!current.isFolder && (current.size ?? 0) > fileLimit) throw const DriveApiException('Private Windows transfers support up to 1 GiB per file.');
+    if (!current.isFolder && (current.size ?? 0) > fileLimit) throw const DriveApiException(kIsWeb ? 'Web transfers support up to 32 MiB per file.' : 'Windows transfers support up to 1 GiB per file.');
     final children = <_Plan>[];
     if (current.isFolder) {
       for (final child in await provider(account).listFolder(account, current.id)) {
