@@ -1,5 +1,29 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
+## Current Windows 21.1 update — 6 September 2026
+
+Owner reported the previous build works. New theme, sorting, persistent background
+scan and full account hover changes passed Analyze, tests and Windows packaging.
+
+- Tested runtime: `630c7ac2af10907199869ddad9848fd6e4dedb79`.
+- Workflow: `34055324289`; job: `101546087971`.
+- FarooqDrive-Windows-Installer: `9995837248`, 10668603 bytes, `sha256:857a7ca928409e89d02248d7adbf2d29a70f66785ab6f1cbd8171883ba6009f1`.
+- FarooqDrive-Windows-x64: `9995836913`, 12780678 bytes, `sha256:65597b6ad97de2b7c1eb52530ee8bbf9c1ddd527ea48841369b4003b087d3d47`.
+- Display stays 21.1 without Test; pubspec stays 21.1.0+22.
+- Light/Dark and shared column sorting persist. Full account name/email on hover.
+- Scans run without blocking navigation. A local metadata index survives tabs,
+  Refresh and restart. Rescan all replaces it only on success. Mutations mark it
+  outdated and reject an inconsistent scan. No tokens/contents in saved index.
+- English/Urdu Help, Privacy, Terms and README updated; Store copy and console
+  guidance are in WINDOWS-21.1-RELEASE-TEXT.md.
+- Live website, main, mobile and Store distribution remain unchanged. Website
+  publication needs hosting/source access; Store submission needs the matching
+  accepted MSIX. Console verification status was not checked in owner consoles.
+  No new OAuth scopes are introduced by this update.
+
+## Historical compact explorer checkpoint
+
+
 Status: Owner reported the app runs well, requested a compact explorer layout and eight views, and reported OneDrive local-upload failures and inconsistent internal drops. The updated candidate passed Analyze, all 29 tests, Windows compilation and both packages. Owner re-testing of authenticated OneDrive uploads is still required; the original live failure was not reproduced using the owner's credentials. See [current scope and limitations](WINDOWS-VERIFIED-TRANSFERS.md).
 
 ## Current compact explorer / local upload candidate
