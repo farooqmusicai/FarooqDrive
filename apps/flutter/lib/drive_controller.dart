@@ -7,14 +7,29 @@ import 'google_auth.dart';
 import 'cloud_drive_api.dart';
 import 'google_drive_api.dart';
 import 'models.dart';
+import 'microsoft_auth.dart';
+import 'onedrive_api.dart';
 
 class DriveController extends ChangeNotifier {
   DriveController({CloudDriveApi? api, GoogleAccountAuthorizer? authorizer,
+    MicrosoftAccountAuthorizer? microsoftAuthorizer,
     Map<CloudProviderType, CloudDriveApi> providers = const {},
   })
       : api = api ?? GoogleDriveApi(),
-        _providers = Map.unmodifiable(providers),
-        authorizer = authorizer ?? GoogleAccountAuthorizer();
+        _providers = Map.of(providers),
+        microsoftAuthorizer = microsoftAuthorizer ?? MicrosoftAccountAuthorizer(),
+        authorizer = authorizer ?? GoogleAccountAuthorizer() {
+    if (MicrosoftAccountAuthorizer.supported) {
+      _providers.putIfAbsent(CloudProviderType.onedrive,
+        () => OneDriveApi(tokenResolver: this.microsoftAuthorizer.accessToken));
+    }
+  }
+
+  final MicrosoftAccountAuthorizer microsoftAuthorizer;
+  String microsoftClientId = '';
+  bool get supportsMicrosoft => MicrosoftAccountAuthorizer.supported;
+  bool get hasMicrosoftClientId => MicrosoftAccountAuthorizer.buildClientId.isNotEmpty || microsoftClientId.isNotEmpty;
+  bool get hasOfficialMicrosoftClientId => MicrosoftAccountAuthorizer.buildClientId.isNotEmpty;
 
   final CloudDriveApi api;
   final Map<CloudProviderType, CloudDriveApi> _providers;
@@ -173,14 +188,16 @@ class DriveController extends ChangeNotifier {
 
   Future<void> initialize() async {
     loading = true;
-    operationMessage = 'Restoring Google accounts…';
+    operationMessage = 'Restoring cloud accounts…';
     notifyListeners();
     try {
       final preferences = await SharedPreferences.getInstance();
+      microsoftClientId = preferences.getString('farooqdrive.microsoft.clientId') ?? '';
       webClientId = preferences.getString('farooqdrive.googleClientId') ??
           preferences.getString('farooqdrive.webClientId') ??
           '';
-      desktopClientSecret = await authorizer.loadClientSecret();
+      try { desktopClientSecret = await authorizer.loadClientSecret(); }
+      catch (_) { error = 'Saved Google settings could not be loaded.'; }
       final cutoff = DateTime.now().subtract(const Duration(days: 7));
       activityLog
         ..clear()
@@ -190,24 +207,31 @@ class DriveController extends ChangeNotifier {
               .whereType<ActivityEntry>()
               .where((entry) => entry.timestamp.isAfter(cutoff)),
         );
-      final restored = await authorizer.restoreAccounts(
-        webClientId,
-        desktopClientSecret,
-      );
+      final restored = <DriveAccount>[];
+      try {
+        restored.addAll(await authorizer.restoreAccounts(webClientId, desktopClientSecret));
+      } catch (_) { error = 'Some Google accounts need sign-in again.'; }
+      try {
+        restored.addAll(await microsoftAuthorizer.restoreAccounts());
+        if (microsoftAuthorizer.restoreWarnings.isNotEmpty) {
+          error = [if (error != null) error!, ...microsoftAuthorizer.restoreWarnings].join(' ');
+        }
+      } catch (_) { error = '${error ?? ''} Microsoft accounts could not be restored. Sign in again.'.trim(); }
       accounts
         ..clear()
         ..addAll(restored);
       for (final account in accounts) {
         paths[account.id] = <FolderCrumb>[
-          const FolderCrumb('root', 'My Drive'),
+          FolderCrumb(apiFor(account).rootFolderId, apiFor(account).rootFolderLabel),
         ];
       }
       if (accounts.isNotEmpty) {
         selectedAccountId = accounts.first.id;
+        await _refreshQuotas();
         await _loadFiles();
       }
     } catch (exception) {
-      error = 'Saved Google accounts could not be restored: $exception';
+      error = 'Saved accounts could not be restored: $exception';
     } finally {
       loading = false;
       operationMessage = 'Working…';
@@ -228,6 +252,36 @@ class DriveController extends ChangeNotifier {
     error = null;
     notifyListeners();
   }
+
+  Future<void> saveMicrosoftClientId(String value) async {
+    final id = value.trim();
+    if (!RegExp(r'^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$').hasMatch(id)) {
+      error = 'Enter a valid Microsoft Application (client) ID.';
+      notifyListeners();
+      return;
+    }
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('farooqdrive.microsoft.clientId', id);
+    microsoftClientId = id;
+    error = null;
+    notifyListeners();
+  }
+
+  Future<void> addMicrosoftAccount() => _guard(() async {
+    final added = await microsoftAuthorizer.addAccount(microsoftClientId);
+    if (added == null) return;
+    final index = accounts.indexWhere((account) => account.id == added.id);
+    if (index < 0) { accounts.add(added); } else { accounts[index] = added; }
+    paths[added.id] = [FolderCrumb(apiFor(added).rootFolderId, apiFor(added).rootFolderLabel)];
+    selectedAccountId = added.id;
+    _invalidateIndex();
+    try {
+      final updated = await apiFor(added).refreshQuota(added);
+      accounts[accounts.indexWhere((account) => account.id == added.id)] = updated;
+    } catch (_) { error = 'OneDrive quota is unavailable. Check that OneDrive is provisioned and permitted for this account.'; }
+    await _loadFiles();
+    await _recordActivity('Microsoft OneDrive connected', added.email, accountEmail: added.email);
+  }, message: 'Signing in to Microsoft…');
 
   Future<void> saveClientSecret(String value) async {
     final secret = value.trim();
@@ -303,9 +357,10 @@ class DriveController extends ChangeNotifier {
       });
 
   Future<void> _refreshQuotas() async {
-    final refreshed = await Future.wait(accounts.map(
-      (account) => apiFor(account).refreshQuota(account),
-    ));
+    final refreshed = await Future.wait(accounts.map((account) async {
+      try { return await apiFor(account).refreshQuota(account); }
+      catch (_) { error = '${error ?? ''} Quota unavailable for ${account.email}.'.trim(); return account; }
+    }));
     for (final account in refreshed) {
       final index = accounts.indexWhere((item) => item.id == account.id);
       if (index >= 0) accounts[index] = account;
@@ -323,13 +378,16 @@ class DriveController extends ChangeNotifier {
                   const [FolderCrumb('root', 'My Drive')])
               .last
               .id;
-      return apiFor(account).listFolder(account, folder);
+      return apiFor(account).listFolder(account, folder).catchError((Object _) {
+        error = '${error ?? ''} Could not open ${account.email}. Check sign-in, OneDrive provisioning or organization access.'.trim();
+        return <DriveItem>[];
+      });
     }));
     files.clear();
     for (var index = 0; index < groups.length; index++) {
       final account = targets[index];
       final location = allDrives
-          ? 'My Drive'
+          ? apiFor(account).rootFolderLabel
           : (paths[account.id] ?? const [FolderCrumb('root', 'My Drive')])
               .map((crumb) => crumb.name)
               .join(' / ');
@@ -484,7 +542,7 @@ class DriveController extends ChangeNotifier {
         parentId = parent.parents.isEmpty ? null : parent.parents.first;
       }
       return item.copyWithLocation(
-        ['My Drive', ...names].join(' / '),
+        [apiFor(accountById(item.accountId)!).rootFolderLabel, ...names].join(' / '),
       );
     });
   }
@@ -529,7 +587,11 @@ class DriveController extends ChangeNotifier {
 
   Future<void> disconnectAccount(String accountId) => _guard(() async {
     final email = accountById(accountId)?.email ?? accountId;
-    await authorizer.forgetAccount(accountId);
+    if (accountById(accountId)?.provider == CloudProviderType.onedrive) {
+      await microsoftAuthorizer.forgetAccount(accountId);
+    } else {
+      await authorizer.forgetAccount(accountId);
+    }
     accounts.removeWhere((item) => item.id == accountId);
     files.removeWhere((item) => item.accountId == accountId);
     indexedFiles.removeWhere((item) => item.accountId == accountId);

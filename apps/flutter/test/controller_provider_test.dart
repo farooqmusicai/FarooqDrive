@@ -79,8 +79,10 @@ void main() {
     expect(api.scans, 2);
   });
 
-  test('unconfigured Microsoft accounts never fall back to Google', () {
-    final controller = DriveController();
+  test('mismatched Microsoft provider never falls back to Google', () {
+    final controller = DriveController(providers: {
+      CloudProviderType.onedrive: RecordingApi(CloudProviderType.google),
+    });
     addTearDown(controller.dispose);
     expect(() => controller.apiFor(account('m', CloudProviderType.onedrive)),
       throwsA(isA<DriveApiException>()));

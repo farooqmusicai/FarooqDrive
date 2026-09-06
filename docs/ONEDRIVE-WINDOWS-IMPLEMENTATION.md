@@ -1,6 +1,18 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
-Status: Milestone 1 analyze/tests/Windows compilation passed in run 34045708699. Provider routing and lazy-index changes authored; their CI is pending. OneDrive authentication and file operations are not implemented.
+Status: Provider routing/lazy indexing passed all checks and Windows packaging in run 34046080811 at 98f4f9c0999492fbd3225a2e17e8b06727941259. Milestone 3 Windows OneDrive read-only integration is authored and awaiting CI and owner login testing.
+
+## Microsoft read-only checkpoint
+- Windows system-browser Authorization Code + PKCE with random state, exact loopback redirect, timeout/cleanup, account chooser and no client secret.
+- Provider-specific secure-storage records, rotated refresh tokens, lazy renewal, disconnect cleanup and independent Google/Microsoft restoration.
+- Microsoft client ID supplied via MICROSOFT_DESKTOP_CLIENT_ID from the existing repository Actions secret. Owner reports the secret saved; no value is committed in source.
+- OneDrive root/folder paging, BFS indexing only on user request, quota, bounded retries and token-safe redirect downloads.
+- Explicit private 32 MiB download cap until disk-backed transfer is implemented. This is a conservative test limit, not a provider limit.
+- OneDrive mutation and cross-provider transfer endpoints throw read-only errors. No live OneDrive files have been changed by this work.
+- Windows Add account chooser and provider labels; Web remains on its existing Google authentication. Android branch remains unchanged.
+- New mocked tests cover PKCE exchange, invalid state, secure restoration, rotated refresh tokens, disconnect, quota 401 renewal, paging-host rejection and download token separation.
+- API consent and real Windows browser callback still need owner's test. Shared remote items, packages, cache transfers, final Move confirmation and public-release documentation remain later gates.
+- Microsoft recommends supported authentication libraries. This Flutter implementation uses the handoff's explicit protocol approach with focused tests; no claim of Microsoft certification is made.
 
 ## Provider-routing checkpoint
 - All controller API operations select the source or destination provider explicitly. Unknown providers fail instead of silently using Google.

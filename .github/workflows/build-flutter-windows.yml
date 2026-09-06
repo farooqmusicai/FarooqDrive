@@ -40,7 +40,10 @@ jobs:
         run: flutter test
       - name: Build Windows
         working-directory: apps/flutter
-        run: flutter build windows --release --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.FAROOQDRIVE_DESKTOP_CLIENT_ID }}
+        env:
+          MICROSOFT_CLIENT_ID: ${{ secrets.FAROOQDRIVE_MICROSOFT_CLIENT_ID }}
+          GOOGLE_CLIENT_ID: ${{ secrets.FAROOQDRIVE_DESKTOP_CLIENT_ID }}
+        run: flutter build windows --release "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=$env:GOOGLE_CLIENT_ID" "--dart-define=MICROSOFT_DESKTOP_CLIENT_ID=$env:MICROSOFT_CLIENT_ID"
       - name: Package portable app
         shell: pwsh
         run: Compress-Archive -Path apps/flutter/build/windows/x64/runner/Release/* -DestinationPath FarooqDrive-Windows-x64.zip

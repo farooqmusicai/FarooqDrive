@@ -231,9 +231,33 @@ class _FileManagerPageState extends State<FileManagerPage> {
         await controller.saveClientSecret(secret);
       }
     }
+    if (controller.supportsMicrosoft && !controller.hasOfficialMicrosoftClientId && mounted) {
+      final id = await _ask('Microsoft Application (client) ID', initial: controller.microsoftClientId);
+      if (id != null && id.isNotEmpty) await controller.saveMicrosoftClientId(id);
+    }
   }
 
   Future<void> _addAccount() async {
+    if (controller.supportsMicrosoft) {
+      final provider = await showDialog<CloudProviderType>(context: context, builder: (context) => SimpleDialog(
+        title: const Text('Add account'),
+        children: [
+          SimpleDialogOption(onPressed: () => Navigator.pop(context, CloudProviderType.google), child: const Text('Google Drive')),
+          SimpleDialogOption(onPressed: () => Navigator.pop(context, CloudProviderType.onedrive), child: const Text('Microsoft OneDrive — read-only test')),
+        ],
+      ));
+      if (provider == null || !mounted) return;
+      if (provider == CloudProviderType.onedrive) {
+        if (!controller.hasMicrosoftClientId) {
+          final id = await _ask('Microsoft Application (client) ID', initial: controller.microsoftClientId);
+          if (id == null) return;
+          await controller.saveMicrosoftClientId(id);
+          if (!controller.hasMicrosoftClientId) return;
+        }
+        await controller.addMicrosoftAccount();
+        return;
+      }
+    }
     if (!controller.hasRequiredCredentials ||
         (!controller.hasClientId &&
             GoogleAccountAuthorizer.buildClientId.isEmpty)) {
@@ -354,7 +378,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _HelpSection(title: '1. Connect your Drives', text: 'Select Add Google account and approve Google Drive access in your browser. Repeat this for every account you want to manage.'),
+                            _HelpSection(title: '1. Connect your Drives', text: 'Select Add account and choose Google Drive or, on Windows, Microsoft OneDrive. Approve access in your browser. Repeat for each account.'),
+                            _HelpSection(title: 'OneDrive private test', text: 'OneDrive currently supports browsing, quota, search and downloads up to 32 MiB. Upload, copy, move and Trash are blocked for OneDrive in this test. Microsoft refresh tokens are kept in secure device storage; disconnect removes the saved Microsoft session. A failed account does not remove your other accounts. Work or school access may require organization approval. Larger transfers and final source-removal confirmation are not yet available.'),
                             _HelpSection(title: '2. Browse everything together', text: 'All Drives combines connected accounts. Select one account for its My Drive. Double-click a folder to open it; use Back, Up or the path bar to return.'),
                             _HelpSection(title: '3. All, Folders and Files', text: 'All shows folders and files together. The other tabs filter the list. Search works across all indexed Drives and every count changes to match the results currently shown.'),
                             _HelpSection(title: '4. Manage files', text: 'Select one or more items, then use Download, Copy, Cut, Paste, Rename or Trash. For Cut or Copy, open the destination Drive or folder before selecting Paste.'),
@@ -652,7 +677,7 @@ class _Sidebar extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.fromLTRB(12, 24, 12, 10),
                 child: Text(
-                  'GOOGLE ACCOUNTS',
+                  'CLOUD ACCOUNTS',
                   style: TextStyle(color: Color(0xff8da5c1), fontSize: 12),
                 ),
               ),
@@ -660,7 +685,7 @@ class _Sidebar extends StatelessWidget {
                 child: ListView(
                   children: controller.accounts
                       .map((account) => _DriveTile(
-                            title: account.name,
+                            title: '${account.provider == CloudProviderType.onedrive ? 'OneDrive · ' : 'Google · '}${account.name}',
                             subtitle: account.email,
                             subtitleColor:
                                 _accountColor(controller, account.id),
@@ -676,7 +701,7 @@ class _Sidebar extends StatelessWidget {
                                     builder: (context) => AlertDialog(
                                       title: const Text('Disconnect Drive?'),
                                       content: Text(
-                                        'Disconnect ${account.email} from FarooqDrive? Your Google Drive files will not be deleted.',
+                                        'Disconnect ${account.email} from FarooqDrive? Your cloud files will not be deleted.',
                                       ),
                                       actions: [
                                         TextButton(
@@ -702,16 +727,19 @@ class _Sidebar extends StatelessWidget {
                 ),
               ),
               FilledButton.icon(
-                onPressed: controller.loading ? null : onAddAccount,
+                onPressed: controller.loading ? null : () {
+                  if (closeAfterSelection) Scaffold.of(context).closeDrawer();
+                  onAddAccount();
+                },
                 icon: const Icon(Icons.add),
-                label: const Text('Add Google account'),
+                label: const Text('Add account'),
               ),
               const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    tooltip: 'Google settings',
+                    tooltip: 'Account settings',
                     onPressed: onSettings,
                     icon: const Icon(Icons.settings, color: Color(0xff9db5d1)),
                   ),
