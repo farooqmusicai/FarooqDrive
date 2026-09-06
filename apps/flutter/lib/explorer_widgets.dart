@@ -21,7 +21,8 @@ class CloudDragSource extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) {
-    final selection = controller.selectedKeys.contains(controller.keyOf(item)) ? controller.selectedItems : [item];
+    final selected = controller.selectedKeys.contains(controller.keyOf(item)) ? controller.selectedItems : <DriveItem>[];
+    final selection = selected.isEmpty ? [item] : selected;
     return Draggable<List<DriveItem>>(
       hitTestBehavior: HitTestBehavior.opaque,
       data: List.unmodifiable(selection), maxSimultaneousDrags: controller.loading ? 0 : 1,

@@ -7,9 +7,15 @@ the published web/Store release or the Android branch.
 
 Click an account to open its contents. Expand its arrow to load its immediate
 files/folders; expand subfolders as needed. The tree does not run an account-wide
-scan. Refresh reloads expanded folders. Choose Details, List or Large icons.
+scan. Refresh reloads expanded folders. Back/Up/breadcrumbs and file actions share
+one row. Name sorting and View stay together on the right. View supports Extra
+large icons, Large icons, Medium icons, Small icons, List, Details, Tiles and
+Content. Account name/email fonts are both 13 px. Existing text identification
+is retained; no provider logos have been added.
 Checkboxes select multiple items. Copy/Cut, open a destination, then Paste.
-Dragging within FarooqDrive onto an account or folder asks Copy/Move/Cancel.
+Dragging within FarooqDrive onto an account, folder, breadcrumb or the current
+folder's blank area asks Copy/Move/Cancel. The red information icon beside
+Activity opens the transfer disclosure, latest result and any current error.
 Native drag from/to Windows Explorer and preview/thumbnails are not included.
 
 ## Transfer safety
@@ -57,7 +63,9 @@ is not atomic. Files copied before an interruption may remain at the destination
 - Automatic restart/resume is not implemented. On interruption, sources without
   completed confirmed cleanup remain; retry may create additional destination
   copies. Incomplete provider upload sessions expire under provider rules.
-- Zero-byte OneDrive upload sessions are blocked in this candidate. Unsupported
+- OneDrive files up to 4 MiB, including empty files, use the direct content upload
+  endpoint with explicit rename-on-conflict. Larger files use upload sessions.
+  Unsupported
   Google-native formats, shortcuts and remote packages are not transferred.
   Within the same Google account, native Copy preserves its native format using
   Google's copy operation. These native copies are explicitly reported separately
@@ -65,9 +73,11 @@ is not atomic. Files copied before an interruption may remain at the destination
   Google Docs/Sheets/Slides export to Office files, drawings to PNG. Export
   output bytes are verified; native sharing, comments and version history are
   not preserved by the exported file.
-- The existing Upload picker and Download-to-PC path still buffer bytes; they
-  are distinct from the disk-backed cloud transfer path. OneDrive Download-to-PC
-  remains capped at 32 MiB. Android/iOS large-file limits are not established.
+- The Windows Upload picker now streams into the disk cache and verifies the
+  destination SHA-256, for both providers, with the 1 GiB guard. Local source
+  files are never removed. Download-to-PC still buffers bytes and OneDrive
+  Download-to-PC remains capped at 32 MiB. Android/iOS large-file limits are not
+  established.
 
 ## Private acceptance checks
 
@@ -82,6 +92,8 @@ disk space. Check source files remain and review any partial copies before retry
 ## Provider references
 
 - [Microsoft upload sessions](https://learn.microsoft.com/en-us/graph/api/driveitem-createuploadsession?view=graph-rest-1.0)
+- [Microsoft direct uploads](https://learn.microsoft.com/en-us/graph/api/driveitem-put-content?view=graph-rest-1.0)
+- [Conflict behavior in the request URL](https://learn.microsoft.com/en-us/graph/api/resources/driveitem?view=graph-rest-1.0#instance-attributes)
 - [Microsoft conditional Recycle Bin deletion](https://learn.microsoft.com/en-us/graph/api/driveitem-delete?view=graph-rest-1.0)
 - [Google resumable uploads](https://developers.google.com/workspace/drive/api/guides/manage-uploads)
 

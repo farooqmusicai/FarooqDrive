@@ -32,7 +32,7 @@ class OneDriveApi extends CloudDriveApi {
       final value = ((jsonDecode(response.body) as Map)['error'] as Map?)?['code'];
       if (value is String && RegExp(r'^[A-Za-z0-9_]{1,80}$').hasMatch(value)) code = ': $value';
     } catch (_) {}
-    return DriveApiException('OneDrive $action failed (${response.statusCode}$code). Check account permissions, free cloud space and the destination filename. Originals are retained.', statusCode: response.statusCode);
+    return DriveApiException('OneDrive $action failed (${response.statusCode}$code). Check account permissions, free cloud space and the destination filename. Review Activity before retrying.', statusCode: response.statusCode);
   }
 
   Future<http.Response> _get(DriveAccount account, Uri uri) async {

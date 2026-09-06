@@ -406,7 +406,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _HelpSection(title: '1. Connect your Drives', text: 'Select Add account and choose Google Drive or, on Windows, Microsoft OneDrive. Approve access in your browser. Repeat for each account.'),
-                            _HelpSection(title: 'Windows transfers and limits', text: 'Copy/Paste and internal drag-and-drop use a temporary disk file, sequential uploads and full SHA-256 destination verification. Private candidate limit: 1 GiB per file, 10,000 items and 64 folder levels per batch. Keep enough free disk space for the largest file plus normal Windows needs. Transfer traffic uses your internet connection, including a second destination download for verification. Google-native documents are exported to Office formats or PNG; unsupported formats are retained. Move asks Yes/No after verification. Only unchanged OneDrive source files support conditional Recycle Bin cleanup; Google source files and original folder containers remain. No keeps both copies. Interrupted uploads may leave destination copies; retries create new copies. Automatic resume after restarting is not available. Native download and file-picker upload still use memory; OneDrive download limit is 32 MiB. Account connections have no fixed app cap; service quotas, organization policies and device resources apply.'),
+                            _HelpSection(title: 'Windows transfers and limits', text: 'Copy/Paste and internal drag-and-drop use a temporary disk file, sequential uploads and full SHA-256 destination verification. Private candidate limit: 1 GiB per file, 10,000 items and 64 folder levels per batch. Keep enough free disk space for the largest file plus normal Windows needs. Transfer traffic uses your internet connection, including a second destination download for verification. Google-native same-account copies preserve their format and retain originals; between accounts, supported documents export to Office formats or PNG. Move asks Yes/No after verification. Only unchanged OneDrive source files support conditional Recycle Bin cleanup; Google source files and original folder containers remain. No keeps both copies. Interrupted uploads may leave destination copies; retries create new copies. Automatic resume after restarting is not available. Windows file-picker uploads stream through disk and verify the destination. Download-to-PC still uses memory; OneDrive download limit is 32 MiB. Account connections have no fixed app cap; service quotas, organization policies and device resources apply.'),
                             _HelpSection(title: 'Temporary storage', text: 'Transfer cache: ${TransferSpool.cachePath}. Files are not encrypted by FarooqDrive in this folder. Completed or failed jobs remove their own cache files; an app crash may leave job folders here. Close FarooqDrive before manually removing leftover job folders. Transfers never delete original local files.'),
                             _HelpSection(title: '2. Browse everything together', text: 'All Drives combines connected accounts. Select one account for its My Drive. Double-click a folder to open it; use Back, Up or the path bar to return.'),
                             _HelpSection(title: '3. All, Folders and Files', text: 'All shows folders and files together. The other tabs filter the list. Search works across all indexed Drives and every count changes to match the results currently shown.'),
@@ -636,7 +636,7 @@ class _Sidebar extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
+  Widget build(BuildContext context) => Material(
         color: const Color(0xff0b1d31),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
@@ -773,8 +773,8 @@ class _Sidebar extends StatelessWidget {
                 label: const Text('Add account'),
               ),
               const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
                 children: [
                   IconButton(
                     tooltip: 'Account settings',
