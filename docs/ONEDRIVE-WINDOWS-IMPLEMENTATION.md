@@ -1,6 +1,18 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
-Status: Provider routing/lazy indexing passed all checks and Windows packaging in run 34046080811 at 98f4f9c0999492fbd3225a2e17e8b06727941259. Milestone 3 Windows OneDrive read-only integration is authored and awaiting CI and owner login testing.
+Status: Milestone 3 read-only Windows implementation passed Analyze, Tests, Windows compilation and installer/portable packaging. Owner Microsoft login testing is the next gate.
+
+## Verified private Windows candidate
+- Exact code commit: bcb352194c61873b97c8f84e5f420738d46e898a
+- Successful workflow run: 34047263513; job: 101524434622
+- Portable ZIP artifact: FarooqDrive-Windows-x64; ID: 9993544705; bytes: 12696379
+- Portable artifact SHA-256: 4d74c6376692b19e38987e14c688fedfbb490b2724f0c04102e4e85588542ff3
+- Installer artifact: FarooqDrive-Windows-Installer; ID: 9993545045; bytes: 10603939
+- Installer artifact SHA-256: fd4ba37a89bad9f1e25b5b834a599e826f127cb0c2be3f213e3deb2a239a0a0e
+- Digests describe GitHub artifact archives, not the EXE inside them.
+- Earlier auth test failure was traced to Flutter's default test HTTP override. A test binding now allows the real loopback callback; all Microsoft endpoints remain mocked. Corrected callback/security tests passed.
+- No owner Microsoft account sign-in or device restart has been tested by the assistant. Follow ONEDRIVE-PRIVATE-WINDOWS-TEST.md on the owner's Windows PC.
+- No Store submission, main merge, Android change or version-number change occurred.
 
 ## Microsoft read-only checkpoint
 - Windows system-browser Authorization Code + PKCE with random state, exact loopback redirect, timeout/cleanup, account chooser and no client secret.
