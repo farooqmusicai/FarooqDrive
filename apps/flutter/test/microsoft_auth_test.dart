@@ -8,8 +8,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+// Exercise the real loopback callback; Microsoft HTTP calls remain MockClient
+// requests. The default widget binding replaces even loopback HTTP with 400.
+class AuthTestBinding extends AutomatedTestWidgetsFlutterBinding {
+  @override
+  bool get overrideHttpClient => false;
+}
+
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  AuthTestBinding();
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
   const id = '11111111-2222-3333-4444-555555555555';
 
