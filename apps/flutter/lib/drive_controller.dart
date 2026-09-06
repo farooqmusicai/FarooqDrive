@@ -713,7 +713,7 @@ class DriveController extends ChangeNotifier {
           for (final item in clip.items) (accountById(item.accountId) ?? (throw const DriveApiException('Source account disconnected.')), item),
         ], destination, parent);
         final eligible = transfer.copies.where((copy) => copy.source.trashTag != null).toList();
-        final retained = transfer.copies.length - eligible.length;
+        final retained = transfer.copies.length - eligible.length + transfer.nativeCopies;
         var cleaned = 0;
         if (clip.mode == ClipboardMode.move && eligible.isNotEmpty) {
           _checkTransferCancelled();
@@ -729,6 +729,7 @@ class DriveController extends ChangeNotifier {
           }
         }
         transferResult = '${transfer.copies.length} file(s) copied and SHA-256 verified. $cleaned source file(s) moved to Recycle Bin. Original folder containers remain. '
+          '${transfer.nativeCopies > 0 ? "${transfer.nativeCopies} Google-native copy/copies preserved their format; not byte-verified, originals retained. " : ""}'
           '${clip.mode == ClipboardMode.move && retained > 0 ? "$retained source file(s) retained because conditional cleanup is unavailable." : ""}';
         await _recordActivity('Transfer complete', transferResult, accountEmail: destination.email);
         if (clip.mode == ClipboardMode.move) clipboard = null;

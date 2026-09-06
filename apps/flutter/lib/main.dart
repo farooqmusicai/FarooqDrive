@@ -492,6 +492,9 @@ class _FileManagerPageState extends State<FileManagerPage> {
             Expanded(
               child: Column(
                 children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .65),
+                    child: SingleChildScrollView(child: Column(children: [
                   _Header(
                     controller: controller,
                     showMenu: !showSidebar,
@@ -535,6 +538,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
                   if (controller.transferResult.isNotEmpty) Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                     child: SelectableText(controller.transferResult, style: const TextStyle(fontSize: 12))),
+                    ])),
+                  ),
                   Expanded(child: _FileList(controller: controller)),
                 ],
               ),
@@ -1594,14 +1599,14 @@ class _FileListState extends State<_FileList> {
     final files = controller.visibleFiles;
     if (files.isEmpty) {
       return Center(
-        child: Column(
+        child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.folder_open, size: 54, color: Color(0xff8ba0b8)),
             const SizedBox(height: 12),
             Text(
               controller.accounts.isEmpty
-                  ? 'Connect a Google account to begin.'
+                  ? 'Connect a cloud account to begin.'
                   : controller.viewMode == FileViewMode.all
                       ? 'No files or folders in this location.'
                       : controller.viewMode == FileViewMode.files
@@ -1611,7 +1616,7 @@ class _FileListState extends State<_FileList> {
                           : 'No matching duplicates were found across your Drives.',
             ),
           ],
-        ),
+        )),
       );
     }
     if (controller.layout != 'details') {

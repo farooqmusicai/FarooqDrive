@@ -98,4 +98,29 @@ void main() {
     expect(await api.uploadTransfer(account, 'root', 'file', 'application/octet-stream', 3,
       (start,end) async => Uint8List.fromList([1,2,3])), 'new');
   });
+
+  test('multi-chunk uploads honor sequential 320 KiB aligned ranges', () async {
+    const chunk = 10 * 1024 * 1024;
+    const length = chunk + 3;
+    var puts = 0;
+    final client = MockClient((request) async {
+      if (request.method == 'POST') return http.Response('{"uploadUrl":"https://upload.example.invalid/session"}', 200);
+      expect(request.headers.containsKey('Authorization'), false);
+      puts++;
+      if (puts == 1) {
+        expect(request.bodyBytes.length, chunk);
+        expect(request.headers['Content-Range'], 'bytes 0-${chunk - 1}/$length');
+        return http.Response('{"nextExpectedRanges":["$chunk-"]}', 202);
+      }
+      expect(puts, 2);
+      expect(request.bodyBytes.length, 3);
+      expect(request.headers['Content-Range'], 'bytes $chunk-${length - 1}/$length');
+      return http.Response('{"id":"complete"}', 201);
+    });
+    addTearDown(client.close);
+    final api = OneDriveApi(tokenResolver: token, client: client);
+    expect(await api.uploadTransfer(account, 'root', 'large.bin', 'application/octet-stream', length,
+      (start,end) async => Uint8List(end - start)), 'complete');
+    expect(puts, 2);
+  });
 }

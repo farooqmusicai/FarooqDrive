@@ -21,6 +21,7 @@ class VerifiedTransfer {
   final void Function() checkCancelled;
   static const fileLimit = 1024 * 1024 * 1024;
   final List<VerifiedCopy> copies = [];
+  int nativeCopies = 0;
   final Set<String> _seen = {};
 
   Future<_Plan> _plan(DriveAccount account, DriveItem item, int depth) async {
@@ -58,6 +59,17 @@ class VerifiedTransfer {
       for (final child in plan.children) { await _copy(child, destination, id); }
       final actual = await targetApi.listFolder(destination, id);
       if (actual.length != plan.children.length) throw const DriveApiException('Destination folder contents differ. Source retained.');
+      return;
+    }
+    if (plan.account.id == destination.id && destination.provider == CloudProviderType.google &&
+        source.item.mimeType.startsWith('application/vnd.google-apps.')) {
+      // Preserve Google-native formats for existing within-account Copy behavior.
+      // These are explicitly not counted as byte-verified or eligible for cleanup.
+      progress('Copying Google-native file ${source.item.name}…');
+      final id = await api.copy(plan.account, source.item, parent);
+      final copy = await api.snapshot(destination, id);
+      if (copy.item.mimeType != source.item.mimeType) throw const DriveApiException('Google-native copy type differs. Source retained.');
+      nativeCopies++;
       return;
     }
     final spool = await TransferSpool.create();

@@ -59,6 +59,9 @@ is not atomic. Files copied before an interruption may remain at the destination
   copies. Incomplete provider upload sessions expire under provider rules.
 - Zero-byte OneDrive upload sessions are blocked in this candidate. Unsupported
   Google-native formats, shortcuts and remote packages are not transferred.
+  Within the same Google account, native Copy preserves its native format using
+  Google's copy operation. These native copies are explicitly reported separately
+  as not byte-verified and are never eligible for source cleanup. Between accounts,
   Google Docs/Sheets/Slides export to Office files, drawings to PNG. Export
   output bytes are verified; native sharing, comments and version history are
   not preserved by the exported file.
