@@ -5,7 +5,6 @@ on:
   push:
     branches: [main]
     paths:
-      - "apps/flutter/**"
       - ".github/workflows/deploy-web-pages.yml"
 
 permissions:
@@ -25,6 +24,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Tested web source; Windows and Store source is released separately.
+          ref: e1996e90a66c51a87ca6ff9e38d02893a52c9283
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build Microsoft browser authentication
+        working-directory: apps/flutter/web-auth
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          node --test auth.test.mjs
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -45,7 +56,10 @@ jobs:
         run: flutter test
       - name: Build GitHub Pages edition
         working-directory: apps/flutter
-        run: flutter build web --release --base-href /FarooqDrive/ --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
+        run: flutter build web --release --base-href /FarooqDrive/ --dart-define=MICROSOFT_WEB_CLIENT_ID=${{ secrets.FAROOQDRIVE_MICROSOFT_CLIENT_ID }} --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
+      - name: Record deployed source
+        working-directory: apps/flutter
+        run: python3 -c 'import json, subprocess; open("build/web/release.json", "w").write(json.dumps({"version":"21.1","source":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),"webTransferLimitMiB":32}))'
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
