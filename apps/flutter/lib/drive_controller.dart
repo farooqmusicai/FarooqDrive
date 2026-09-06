@@ -561,6 +561,7 @@ class DriveController extends ChangeNotifier {
     final generation = _indexGeneration;
     final targets = List<DriveAccount>.of(accounts);
     indexing = true;
+    if (error?.startsWith('Scan failed') ?? false) error = null;
     scanStatus = 'Scan running in background — you can continue working.';
     String stage = 'Starting scan';
     notifyListeners();
