@@ -30,5 +30,6 @@ void main() {
     expect(shouldShowDriveSidebar(1280, pinned: false), isFalse);
     expect(shouldShowDriveSidebar(1280, pinned: true), isTrue);
     expect(shouldShowDriveSidebar(760, pinned: true), isTrue);
+    expect(shouldShowDriveSidebar(390, pinned: true), isFalse);
   });
 }
