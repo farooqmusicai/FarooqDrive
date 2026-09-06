@@ -1,8 +1,33 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
-Status: Owner confirmed the read-only candidate runs with three Google and two OneDrive accounts. The verified-transfer candidate passed Analyze, all 23 tests, Windows compilation, portable packaging and installer packaging. Owner real-account transfer acceptance is the remaining private-test gate. See [current scope and limitations](WINDOWS-VERIFIED-TRANSFERS.md).
+Status: Owner reported the app runs well, requested a compact explorer layout and eight views, and reported OneDrive local-upload failures and inconsistent internal drops. The updated candidate passed Analyze, all 29 tests, Windows compilation and both packages. Owner re-testing of authenticated OneDrive uploads is still required; the original live failure was not reproduced using the owner's credentials. See [current scope and limitations](WINDOWS-VERIFIED-TRANSFERS.md).
 
-## Current verified-transfer candidate
+## Current compact explorer / local upload candidate
+
+- Exact tested commit: `287cfa5fd36445c27dd1fafb571bf72005c0ab30`.
+- Successful workflow: `34052308546`; job: `101537980454`.
+- Portable artifact: `9994971278`, 12,768,449 bytes;
+  SHA-256 `c99a711bc133e38f86ac4895c4638b2438183532345ea59a0458041d78e4000f`.
+- Installer artifact: `9994971602`, 10,657,708 bytes;
+  SHA-256 `c598f4b59c1dc07f766e934e819cb29be64987098776a4bbcb0153d7d587136a`.
+- Back/Up/breadcrumbs/actions share one row; Name and eight-option View are on the
+  right. Disclosure/results/errors moved into a red information dialog next to
+  history. Account name/email fonts are equal, 13 px. Text provider labels remain.
+- Blank current-folder area and breadcrumbs now accept internal drops. Empty
+  stale drag selections fall back to the dragged item. Existing source cleanup
+  confirmation and conditional-trash safeguards are retained.
+- Windows file-picker uploads now stream through disk, upload, and verify SHA-256.
+  OneDrive <=4 MiB uses direct PUT with URL rename-on-conflict and one 401 token
+  refresh; larger files use upload sessions. Error codes are sanitized and shown.
+- Regression checks cover all eight layouts, navigation/action row alignment,
+  information text style, a real Flutter drag gesture into blank space, small and
+  zero-byte OneDrive request shape, token renewal and local-upload corruption.
+- Next owner check: upload a small local TXT/image to OneDrive root and a folder,
+  then drag a cloud test file onto the destination pane's blank area. If upload
+  still fails, obtain the exact error from the red information dialog/Activity.
+- No Store submission, main merge, version increase or Android branch update.
+
+## Previous verified-transfer candidate
 
 - Exact runtime commit: `a6d69037c92fbb93c18eba82c0f30581a09d81e5`.
 - Successful workflow: `34049666817`; job: `101530868965`.
