@@ -40,6 +40,7 @@ class _NativeFileIconState extends State<NativeFileIcon> {
   }
 
   Future<Uint8List?> _load() {
+    if (!Platform.isWindows) return Future<Uint8List?>.value(null);
     final extension = widget.isFolder
         ? '<folder>'
         : widget.fileName.contains('.')
