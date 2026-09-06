@@ -60,6 +60,14 @@ class DriveController extends ChangeNotifier {
   String desktopClientSecret = '';
   String query = '';
   String sort = 'name';
+  bool sortAscending = true;
+  int _indexGeneration = 0;
+  bool _disposed = false;
+  String scanStatus = '';
+  final Set<String> _exactKeys = {};
+  final Set<String> _conflictKeys = {};
+  @override
+  void dispose() { _disposed = true; _indexGeneration++; super.dispose(); }
   String layout = 'details';
   void setLayout(String value) { layout = value; notifyListeners(); }
   FileViewMode viewMode = FileViewMode.all;
@@ -153,35 +161,23 @@ class DriveController extends ChangeNotifier {
     }).toList();
     result.sort((a, b) {
       if (a.isFolder != b.isFolder) return a.isFolder ? -1 : 1;
-      return switch (sort) {
-        'size' => (a.size ?? 0).compareTo(b.size ?? 0),
-        'modified' => (b.modifiedTime ?? DateTime(0))
-            .compareTo(a.modifiedTime ?? DateTime(0)),
+      final comparison = switch (sort) {
+        'size' => (sizeOf(a) ?? -1).compareTo(sizeOf(b) ?? -1),
+        'modified' => (a.modifiedTime ?? DateTime(0)).compareTo(b.modifiedTime ?? DateTime(0)),
+        'account' => a.accountEmail.toLowerCase().compareTo(b.accountEmail.toLowerCase()),
         'type' => a.mimeType.compareTo(b.mimeType),
         _ => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
       };
+      final stable = comparison == 0 ? keyOf(a).compareTo(keyOf(b)) : comparison;
+      return sortAscending ? stable : -stable;
     });
     return result;
   }
 
   List<DriveItem> get visibleFiles => matchingItemsFor(viewMode);
 
-  bool isExactDuplicate(DriveItem item) => !item.isFolder &&
-      item.size != null &&
-      indexedFiles.any((other) =>
-      keyOf(other) != keyOf(item) &&
-      !other.isFolder &&
-      other.isFolder == item.isFolder &&
-      other.name.trim().toLowerCase() == item.name.trim().toLowerCase() &&
-      other.size == item.size);
-
-  bool isNameConflict(DriveItem item) => !item.isFolder &&
-      indexedFiles.any((other) =>
-      keyOf(other) != keyOf(item) &&
-      !other.isFolder &&
-      other.isFolder == item.isFolder &&
-      other.name.trim().toLowerCase() == item.name.trim().toLowerCase() &&
-      (other.size != item.size || item.size == null || other.size == null));
+  bool isExactDuplicate(DriveItem item) => _exactKeys.contains(keyOf(item));
+  bool isNameConflict(DriveItem item) => _conflictKeys.contains(keyOf(item));
 
   int get exactDuplicateCount =>
       matchingItemsFor(FileViewMode.exactDuplicates).length;
@@ -467,43 +463,74 @@ class DriveController extends ChangeNotifier {
     query = value;
     notifyListeners();
     if (value.trim().isNotEmpty && !indexReady && !indexing) {
-      await _guard(_buildGlobalIndex, message: 'Searching all Drives…');
+      await _buildGlobalIndex();
     }
   }
 
   void setSort(String value) {
+    sortAscending = sort == value ? !sortAscending : true;
     sort = value;
     notifyListeners();
   }
 
-  Future<void> setViewMode(FileViewMode value) => _guard(() async {
+  Future<void> setViewMode(FileViewMode value) async {
+    final scan = value == FileViewMode.exactDuplicates || value == FileViewMode.nameConflicts;
+    if (scan && !indexReady) {
+      await _buildGlobalIndex();
+      return; // Never replace the folder the user navigated to during the scan.
+    }
     viewMode = value;
     selectedKeys.clear();
-    if ((value == FileViewMode.exactDuplicates ||
-            value == FileViewMode.nameConflicts) &&
-        !indexReady) {
-      await _buildGlobalIndex();
-    }
-  });
+    notifyListeners();
+  }
 
   Future<void> _buildGlobalIndex() async {
+    if (indexing || _disposed) return;
+    final generation = _indexGeneration;
+    final targets = List<DriveAccount>.of(accounts);
     indexing = true;
+    scanStatus = 'Scan running in background — you can continue working.';
     notifyListeners();
     try {
-      final groups = await Future.wait(accounts.map(
-        (account) => apiFor(account).listAllFiles(account),
-      ));
-      folderSizes.clear();
-      for (final group in groups) {
-        _calculateFolderSizes(group);
+      final collected = <DriveItem>[];
+      for (final account in targets) {
+        final group = await apiFor(account).listAllFiles(account);
+        if (_disposed || generation != _indexGeneration) return;
+        collected.addAll(_withLocations(group));
+        await Future<void>.delayed(Duration.zero);
       }
-      indexedFiles
-        ..clear()
-        ..addAll(groups.expand(_withLocations));
+      final names = <String, List<DriveItem>>{};
+      for (var i = 0; i < collected.length; i++) {
+        final item = collected[i];
+        if (!item.isFolder) names.putIfAbsent(item.name.trim().toLowerCase(), () => []).add(item);
+        if (i % 250 == 0) await Future<void>.delayed(Duration.zero);
+      }
+      final exact = <String>{}, conflicts = <String>{};
+      for (final group in names.values) {
+        final sizes = <int?, List<DriveItem>>{};
+        for (final item in group) { sizes.putIfAbsent(item.size, () => []).add(item); }
+        for (final entry in sizes.entries) {
+          if (entry.key != null && entry.value.length > 1) exact.addAll(entry.value.map(keyOf));
+        }
+        if (group.length > 1 && (sizes.length > 1 || sizes.containsKey(null))) conflicts.addAll(group.map(keyOf));
+        if (exact.length + conflicts.length > 0) await Future<void>.delayed(Duration.zero);
+      }
+      if (_disposed || generation != _indexGeneration) return;
+      folderSizes.clear();
+      for (final account in targets) { _calculateFolderSizes(collected.where((item) => item.accountId == account.id).toList()); }
+      indexedFiles..clear()..addAll(collected);
+      _exactKeys..clear()..addAll(exact);
+      _conflictKeys..clear()..addAll(conflicts);
       indexReady = true;
+      scanStatus = 'Scan complete — select a duplicate tab to see results.';
+    } catch (_) {
+      if (!_disposed) scanStatus = 'Scan failed. Check account access and try again.';
     } finally {
-      indexing = false;
-      notifyListeners();
+      if (!_disposed) {
+        if (generation != _indexGeneration) scanStatus = 'Files changed during scan. Run the scan again for current results.';
+        indexing = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -815,6 +842,9 @@ class DriveController extends ChangeNotifier {
   }
 
   void _invalidateIndex() {
+    _indexGeneration++;
+    _exactKeys.clear();
+    _conflictKeys.clear();
     treeRevision++;
     indexReady = false;
     indexedFiles.clear();

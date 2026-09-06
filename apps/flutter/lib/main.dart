@@ -81,25 +81,31 @@ void main() {
   );
 }
 
-class FarooqDriveApp extends StatelessWidget {
-  const FarooqDriveApp({super.key});
+final appThemeMode = ValueNotifier<ThemeMode>(ThemeMode.system);
 
+class FarooqDriveApp extends StatefulWidget {
+  const FarooqDriveApp({super.key});
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'FarooqDrive',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xff0b67d1),
-            surface: const Color(0xfff6f8fc),
-          ),
-          scaffoldBackgroundColor: const Color(0xfff6f8fc),
-          fontFamily: 'Arial',
-          visualDensity: VisualDensity.compact,
-          useMaterial3: true,
-        ),
-        home: const FileManagerPage(),
-      );
+  State<FarooqDriveApp> createState() => _FarooqDriveAppState();
+}
+class _FarooqDriveAppState extends State<FarooqDriveApp> {
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (mounted) appThemeMode.value = prefs.getBool('farooqdrive.darkMode') == null
+        ? ThemeMode.system : prefs.getBool('farooqdrive.darkMode')! ? ThemeMode.dark : ThemeMode.light;
+    });
+  }
+  ThemeData theme(Brightness brightness) => ThemeData(
+    colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff0b67d1), brightness: brightness),
+    brightness: brightness, fontFamily: 'Arial', visualDensity: VisualDensity.compact, useMaterial3: true);
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+    valueListenable: appThemeMode,
+    builder: (context, mode, child) => MaterialApp(
+      debugShowCheckedModeBanner: false, title: 'FarooqDrive', themeMode: mode,
+      theme: theme(Brightness.light), darkTheme: theme(Brightness.dark), home: const FileManagerPage()));
 }
 
 class FileManagerPage extends StatefulWidget {
@@ -405,8 +411,9 @@ class _FileManagerPageState extends State<FileManagerPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            _HelpSection(title: 'Appearance, sorting and background scans', text: 'Use the sun/moon button beside History to switch Light/Dark mode; your choice is saved on this device. Click Name, Account, Size or Modified to sort ascending; click again to reverse. Folders remain first. View offers eight Explorer-style layouts. Duplicate scans run in the background: continue browsing and working, then select the results tab when ready. Changes to files or connected accounts invalidate an in-progress scan; run it again. Exact duplicates means matching name and reported size, not verified identical content; same-name results flag different or unknown sizes. Scanning never deletes files.'),
                             _HelpSection(title: '1. Connect your Drives', text: 'Select Add account and choose Google Drive or, on Windows, Microsoft OneDrive. Approve access in your browser. Repeat for each account.'),
-                            _HelpSection(title: 'Windows transfers and limits', text: 'Copy/Paste and internal drag-and-drop use a temporary disk file, sequential uploads and full SHA-256 destination verification. Private candidate limit: 1 GiB per file, 10,000 items and 64 folder levels per batch. Keep enough free disk space for the largest file plus normal Windows needs. Transfer traffic uses your internet connection, including a second destination download for verification. Google-native same-account copies preserve their format and retain originals; between accounts, supported documents export to Office formats or PNG. Move asks Yes/No after verification. Only unchanged OneDrive source files support conditional Recycle Bin cleanup; Google source files and original folder containers remain. No keeps both copies. Interrupted uploads may leave destination copies; retries create new copies. Automatic resume after restarting is not available. Windows file-picker uploads stream through disk and verify the destination. Download-to-PC still uses memory; OneDrive download limit is 32 MiB. Account connections have no fixed app cap; service quotas, organization policies and device resources apply.'),
+                            _HelpSection(title: 'Windows transfers and limits', text: 'Copy/Paste and internal drag-and-drop use a temporary disk file, sequential uploads and full SHA-256 destination verification. Transfer limit: 1 GiB per file, 10,000 items and 64 folder levels per batch. Keep enough free disk space for the largest file plus normal Windows needs. Transfer traffic uses your internet connection, including a second destination download for verification. Google-native same-account copies preserve their format and retain originals; between accounts, supported documents export to Office formats or PNG. Move asks Yes/No after verification. Only unchanged OneDrive source files support conditional Recycle Bin cleanup; Google source files and original folder containers remain. No keeps both copies. Interrupted uploads may leave destination copies; retries create new copies. Automatic resume after restarting is not available. Windows file-picker uploads stream through disk and verify the destination. Download-to-PC still uses memory; OneDrive download limit is 32 MiB. Account connections have no fixed app cap; service quotas, organization policies and device resources apply.'),
                             _HelpSection(title: 'Temporary storage', text: 'Transfer cache: ${TransferSpool.cachePath}. Files are not encrypted by FarooqDrive in this folder. Completed or failed jobs remove their own cache files; an app crash may leave job folders here. Close FarooqDrive before manually removing leftover job folders. Transfers never delete original local files.'),
                             _HelpSection(title: '2. Browse everything together', text: 'All Drives combines connected accounts. Select one account for its My Drive. Double-click a folder to open it; use Back, Up or the path bar to return.'),
                             _HelpSection(title: '3. All, Folders and Files', text: 'All shows folders and files together. The other tabs filter the list. Search works across all indexed Drives and every count changes to match the results currently shown.'),
@@ -422,9 +429,10 @@ class _FileManagerPageState extends State<FileManagerPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              _HelpSection(title: 'رنگ، ترتیب اور پس منظر میں جانچ', text: 'سورج یا چاند کے بٹن سے دن یا رات کا رنگ منتخب کریں؛ انتخاب محفوظ رہتا ہے۔ Name، Account، Size یا Modified پر کلک سے ترتیب بدلتی ہے؛ دوبارہ کلک سے الٹ جاتی ہے۔ فولڈرز پہلے رہتے ہیں۔ نقل کی جانچ پس منظر میں چلتی ہے؛ آپ کام جاری رکھ سکتے ہیں۔ مکمل ہونے پر نتائج کا ٹیب منتخب کریں۔ دوران جانچ فائلیں تبدیل ہوں تو نئی جانچ کریں۔ Exact duplicates صرف یکساں نام اور سائز ہیں، مواد کی یکسانیت کی ضمانت نہیں۔ جانچ خود کوئی فائل حذف نہیں کرتی۔'),
                               _HelpSection(title: '۱۔ اپنی گوگل ڈرائیوز منسلک کریں', text: 'گوگل اکاؤنٹ شامل کریں منتخب کریں اور براؤزر میں گوگل ڈرائیو کی اجازت منظور کریں۔ ہر مطلوبہ اکاؤنٹ کے لیے یہی عمل دہرائیں۔'),
                               _HelpSection(title: 'ونڈوز Copy اور Move', text: 'OneDrive بھی Add account سے شامل کریں۔ بائیں تیر سے فولڈر کھولیں اور فائل کو مطلوبہ فولڈر پر drag کریں۔ Move پہلے نقل بناتا ہے، پھر مکمل SHA-256 جانچ کے بعد آخری Yes/No پوچھتا ہے۔ No پر دونوں نقول رہتی ہیں۔ صرف غیر تبدیل شدہ OneDrive فائلیں محفوظ شرط کے ساتھ Recycle Bin میں جا سکتی ہیں؛ Google کی اصل فائلیں اور اصل فولڈرز برقرار رہتے ہیں۔'),
-                              _HelpSection(title: 'عارضی جگہ اور حدود', text: 'اس آزمائشی نسخے میں فی فائل 1 GiB، فی کام 10,000 اشیاء اور 64 فولڈر سطحوں کی حد ہے۔ سب سے بڑی فائل کے لیے ہارڈ ڈسک میں خالی جگہ رکھیں۔ FarooqDrive کی عارضی نقل encrypted نہیں ہے۔ کام کے بعد عارضی نقل مٹتی ہے؛ crash پر بچی ہوئی job folders ایپ بند کرکے ہٹائیں۔ دوبارہ شروع ہونے پر خودکار resume موجود نہیں۔ منزل کی تصدیق کے لیے فائل دوبارہ download ہوتی ہے، اس لیے انٹرنیٹ بھی استعمال ہوتا ہے۔ Accounts کی کوئی مقررہ app حد نہیں۔'),
+                              _HelpSection(title: 'عارضی جگہ اور حدود', text: 'اس نسخے میں فی فائل 1 GiB، فی کام 10,000 اشیاء اور 64 فولڈر سطحوں کی حد ہے۔ سب سے بڑی فائل کے لیے ہارڈ ڈسک میں خالی جگہ رکھیں۔ FarooqDrive کی عارضی نقل encrypted نہیں ہے۔ کام کے بعد عارضی نقل مٹتی ہے؛ crash پر بچی ہوئی job folders ایپ بند کرکے ہٹائیں۔ دوبارہ شروع ہونے پر خودکار resume موجود نہیں۔ منزل کی تصدیق کے لیے فائل دوبارہ download ہوتی ہے، اس لیے انٹرنیٹ بھی استعمال ہوتا ہے۔ Accounts کی کوئی مقررہ app حد نہیں۔'),
                               _HelpSection(title: '۲۔ تمام مواد ایک ساتھ دیکھیں', text: 'تمام ڈرائیوز منسلک اکاؤنٹس کا مواد یکجا دکھاتا ہے۔ کسی ایک اکاؤنٹ کی مائی ڈرائیو دیکھنے کے لیے اسے منتخب کریں۔ فولڈر کھولنے کے لیے اس پر دو مرتبہ کلک کریں۔'),
                               _HelpSection(title: '۳۔ تمام، فولڈرز اور فائلیں', text: 'تمام والے حصے میں فولڈرز اور فائلیں اکٹھی نظر آتی ہیں۔ دوسرے حصے فہرست کو الگ کرتے ہیں۔ تلاش تمام فہرست شدہ ڈرائیوز میں کام کرتی ہے اور تعداد صرف موجودہ نتائج کے مطابق بدلتی ہے۔'),
                               _HelpSection(title: '۴۔ فائلوں کا انتظام', text: 'ایک یا زیادہ اشیاء منتخب کرکے ڈاؤن لوڈ، نقل، کاٹیں، چسپاں کریں، نام تبدیل کریں یا کوڑے دان میں منتقل کریں۔ کاٹنے یا نقل کرنے کے بعد منزل والا فولڈر کھول کر چسپاں کریں۔'),
@@ -538,6 +546,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                     onDownload: _download,
                   ),
                   _FileViews(controller: controller),
+                  if (controller.scanStatus.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), child: Text(controller.scanStatus, style: const TextStyle(fontSize: 12))),
                     ])),
                   ),
                   Expanded(child: controller.selectedAccountId == null
@@ -550,7 +559,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
               ],
             ),
           ),
-          if (controller.loading || controller.indexing)
+          if (controller.loading)
             Positioned.fill(
               child: ColoredBox(
                 color: const Color(0x33000000),
@@ -673,7 +682,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 21.1 Test',
+                          'Version 21.1',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -915,10 +924,17 @@ class _Header extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontSize: 26,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xff0b1d31),
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                   ),
                 ),
+                IconButton(tooltip: 'Switch light / dark mode', icon: Icon(Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
+                  onPressed: () async {
+                    final dark = Theme.of(context).brightness != Brightness.dark;
+                    appThemeMode.value = dark ? ThemeMode.dark : ThemeMode.light;
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('farooqdrive.darkMode', dark);
+                  }),
                 IconButton(
                   key: const ValueKey('transfer-information'),
                   tooltip: 'Transfer information',
@@ -927,7 +943,7 @@ class _Header extends StatelessWidget {
                     title: const Text('Transfer information', style: TextStyle(color: Colors.red)),
                     content: SizedBox(width: 560, child: SingleChildScrollView(child: Column(
                       mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const SelectableText('Cloud transfers use temporary disk space and extra verification downloads. Private limit: 1 GiB/file. See Help for cleanup and limits.',
+                      const SelectableText('Cloud transfers use temporary disk space and extra verification downloads. Transfer limit: 1 GiB/file. See Help for cleanup and limits.',
                         style: TextStyle(fontSize: 11, color: Colors.red)),
                       const SizedBox(height: 12),
                       SelectableText('Temporary storage: ${TransferSpool.cachePath}', style: const TextStyle(fontSize: 11, color: Colors.red)),
@@ -960,7 +976,7 @@ class _Header extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
                 color: controller.allDrives
-                    ? const Color(0xffe8f0fe)
+                    ? Theme.of(context).colorScheme.secondaryContainer
                     : _accountColor(controller, controller.selectedAccountId!)
                         .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
@@ -1002,7 +1018,7 @@ class _NavigationBar extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-    decoration: BoxDecoration(color: Colors.white,
+    decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface,
       border: Border.all(color: const Color(0xffdce3ed)), borderRadius: BorderRadius.circular(12)),
     child: LayoutBuilder(builder: (context, constraints) => Row(children: [
       SizedBox(width: (constraints.maxWidth * .20).clamp(160, 260).toDouble(),
@@ -1118,7 +1134,7 @@ class _StorageCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             border: Border.all(color: const Color(0xffdce3ed)),
             borderRadius: BorderRadius.circular(14),
           ),
@@ -1230,10 +1246,11 @@ class _Toolbar extends StatelessWidget {
       ))),
           DropdownButton<String>(
             value: controller.sort,
-            style: const TextStyle(fontSize: 13, color: Color(0xff333333)),
+            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface),
             underline: const SizedBox.shrink(),
             items: const [
               DropdownMenuItem(value: 'name', child: Text('Name')),
+              DropdownMenuItem(value: 'account', child: Text('Account')),
               DropdownMenuItem(value: 'modified', child: Text('Modified')),
               DropdownMenuItem(value: 'size', child: Text('Size')),
               DropdownMenuItem(value: 'type', child: Text('Type')),
@@ -1246,7 +1263,7 @@ class _Toolbar extends StatelessWidget {
           DropdownButton<String>(value: controller.layout,
             key: const ValueKey('explorer-view'),
             underline: const SizedBox.shrink(),
-            style: const TextStyle(fontSize: 13, color: Color(0xff333333)),
+            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface),
             onChanged: (value) { if (value != null) controller.setLayout(value); },
             items: [for (final entry in explorerViewLabels.entries)
               DropdownMenuItem(value: entry.key, child: Text(entry.value))]),
@@ -1314,7 +1331,7 @@ class _FileViews extends StatelessWidget {
         prefixIcon: const Icon(Icons.search),
         isDense: true,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xffdce3ed)),
@@ -1421,7 +1438,10 @@ class _FileListState extends State<_FileList> {
         width: width,
         child: Row(
           children: [
-            Expanded(child: Text(label)),
+            Expanded(child: InkWell(
+              onTap: label == 'Location' ? null : () => controller.setSort(label.toLowerCase()),
+              child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(
+                '$label${controller.sort == label.toLowerCase() ? controller.sortAscending ? " ↑" : " ↓" : ""}')))),
             MouseRegion(
               cursor: SystemMouseCursors.resizeColumn,
               child: GestureDetector(
@@ -1651,7 +1671,7 @@ class _FileListState extends State<_FileList> {
     }
     if (controller.layout != 'details') {
       Widget tile(DriveItem item) => _transferRow(item, Card(
-        color: controller.selectedKeys.contains(controller.keyOf(item)) ? const Color(0xffdce8ff) : null,
+        color: controller.selectedKeys.contains(controller.keyOf(item)) ? Theme.of(context).colorScheme.secondaryContainer : null,
         child: InkWell(onTap: () => controller.selectOnly(item),
           onDoubleTap: () => _openItem(context, item),
           onSecondaryTap: () async {
@@ -1710,7 +1730,7 @@ class _FileListState extends State<_FileList> {
                 child: ListView(
                   children: [
           Container(
-            color: const Color(0xffeef3f9),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: ListTile(
               leading: Checkbox(
                 value: allSelected,
