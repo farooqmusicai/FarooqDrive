@@ -122,7 +122,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
       return await showDialog<bool>(context: context, builder: (context) => AlertDialog(
         title: const Text('Verified copies are ready. Remove originals?'),
         content: SizedBox(width: 560, child: SingleChildScrollView(child: Text(
-          'All copied file contents passed SHA-256 verification.\n\n'
+          'The destination copies listed below passed SHA-256 content verification.\n\n'
           'Move these ${files.length} original file(s) to their source Recycle Bin?\n'
           'No keeps both copies. Source and destination versions are checked again before cleanup.\n\n'
           '${files.map((copy) => "${copy.source.item.name}\n${copy.sourceAccount.email} → ${copy.destination.email} / ${copy.copy.item.name}").join("\n\n")}\n\n'
