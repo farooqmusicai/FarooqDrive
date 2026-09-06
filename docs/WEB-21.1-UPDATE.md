@@ -35,3 +35,13 @@ Keep the existing web OAuth client (`FAROOQDRIVE_WEB_CLIENT_ID`) and authorized 
 ## Release acceptance
 
 CI builds the Microsoft bundle, tests account isolation/error redaction, analyzes Dart, runs Flutter tests (including transfer/index safety), and compiles the web app. Live owner acceptance must include login to Google and OneDrive, folder browsing, a small local upload and verified copy, and Move with No before testing Yes on disposable OneDrive files. A successful build alone does not prove tenant consent or live cloud transfer success.
+
+## Deployment record — 6 September 2026
+
+- Web source: `e1996e90a66c51a87ca6ff9e38d02893a52c9283`.
+- Analyze, tests and release web build passed: [run 34058314279](https://github.com/farooqmusicai/FarooqDrive/actions/runs/34058314279).
+- Main publication commit: `a1135f327f27e4b5c46990783d8134c55bf8bd1d` (workflow and documentation only).
+- Pages deployment passed: [run 34058448862](https://github.com/farooqmusicai/FarooqDrive/actions/runs/34058448862).
+- Owner action: Repo Settings → Pages → Source → **GitHub Actions**. The legacy Jekyll build also ran on the main commit; selecting Actions prevents a future branch build replacing the Flutter site.
+- Owner action: register the SPA callback above, then verify sign-in and disposable-file transfer operations. Publisher verification is separate from branding URLs.
+- Live deployment exposes `release.json` with source SHA and the browser file limit; authenticated account actions are not covered by the deployment check.
