@@ -157,22 +157,24 @@ class DriveController extends ChangeNotifier {
   int get allItemCount => matchingItemsFor(FileViewMode.all).length;
 
   Future<void> initialize() async {
-    final preferences = await SharedPreferences.getInstance();
-    webClientId = preferences.getString('farooqdrive.googleClientId') ??
-        preferences.getString('farooqdrive.webClientId') ??
-        '';
-    desktopClientSecret = await authorizer.loadClientSecret();
-    final cutoff = DateTime.now().subtract(const Duration(days: 7));
-    activityLog
-      ..clear()
-      ..addAll((preferences.getStringList('farooqdrive.activityLog') ?? const [])
-          .map(ActivityEntry.tryFromJson)
-          .whereType<ActivityEntry>()
-          .where((entry) => entry.timestamp.isAfter(cutoff)));
     loading = true;
     operationMessage = 'Restoring Google accounts…';
     notifyListeners();
     try {
+      final preferences = await SharedPreferences.getInstance();
+      webClientId = preferences.getString('farooqdrive.googleClientId') ??
+          preferences.getString('farooqdrive.webClientId') ??
+          '';
+      desktopClientSecret = await authorizer.loadClientSecret();
+      final cutoff = DateTime.now().subtract(const Duration(days: 7));
+      activityLog
+        ..clear()
+        ..addAll(
+          (preferences.getStringList('farooqdrive.activityLog') ?? const [])
+              .map(ActivityEntry.tryFromJson)
+              .whereType<ActivityEntry>()
+              .where((entry) => entry.timestamp.isAfter(cutoff)),
+        );
       final restored = await authorizer.restoreAccounts(
         webClientId,
         desktopClientSecret,
@@ -187,7 +189,6 @@ class DriveController extends ChangeNotifier {
       }
       if (accounts.isNotEmpty) {
         selectedAccountId = accounts.first.id;
-        await _buildGlobalIndex();
         await _loadFiles();
       }
     } catch (exception) {

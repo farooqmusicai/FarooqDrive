@@ -65,7 +65,7 @@ database, or signing certificate.
 
 ## Status
 
-Version 20 is a release candidate until the responsive Windows update is tested
+Version 21 is a release candidate until the safe Windows startup and responsive update are tested
 and Google OAuth is verified with the
 owner's production domains and the Windows installer is tested on clean Windows
 11 and Windows 10 machines.

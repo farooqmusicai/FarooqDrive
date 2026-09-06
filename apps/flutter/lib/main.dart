@@ -73,6 +73,7 @@ class FarooqDriveApp extends StatelessWidget {
           ),
           scaffoldBackgroundColor: const Color(0xfff6f8fc),
           fontFamily: 'Arial',
+          visualDensity: VisualDensity.compact,
           useMaterial3: true,
         ),
         home: const FileManagerPage(),
@@ -359,7 +360,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 1100;
+    final compact = MediaQuery.sizeOf(context).width < 1360;
     return Scaffold(
       drawer: compact
           ? Drawer(
@@ -535,12 +536,12 @@ class _Sidebar extends StatelessWidget {
                           'FarooqDrive',
                           style: TextStyle(
                             color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 21,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 19,
                           ),
                         ),
                         Text(
-                          'Version 20',
+                          'Version 21',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -758,8 +759,9 @@ class _Header extends StatelessWidget {
                     controller.allDrives
                         ? 'All Drives'
                         : controller.selectedAccount?.name ?? 'FarooqDrive',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
                           color: const Color(0xff0b1d31),
                         ),
                   ),
@@ -896,10 +898,7 @@ class _StorageSummary extends StatelessWidget {
     final free = limit == null ? null : (limit - used).clamp(0, limit);
     final indexedBytes = controller.indexedBytesFor(accounts);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      child: Row(
-        children: [
+    final cards = <Widget>[
           _StorageCard(
             icon: Icons.cloud_outlined,
             label: controller.allDrives ? 'Total capacity' : 'Drive capacity',
@@ -929,7 +928,30 @@ class _StorageSummary extends StatelessWidget {
             label: 'Free',
             value: free == null ? 'Not reported' : _formatBytes(free),
           ),
-        ],
+        ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 900) {
+            return Row(
+              children: [
+                for (var index = 0; index < cards.length; index++) ...[
+                  Expanded(child: cards[index]),
+                  if (index < cards.length - 1) const SizedBox(width: 10),
+                ],
+              ],
+            );
+          }
+          final cardWidth = (constraints.maxWidth - 10) / 2;
+          return Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: cards
+                .map((card) => SizedBox(width: cardWidth, child: card))
+                .toList(),
+          );
+        },
       ),
     );
   }
@@ -946,8 +968,7 @@ class _StorageCard extends StatelessWidget {
   final String value;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: Container(
+  Widget build(BuildContext context) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -973,7 +994,6 @@ class _StorageCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
       );
 }
 
@@ -1153,7 +1173,7 @@ class _FileViews extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       child: LayoutBuilder(
-        builder: (context, constraints) => constraints.maxWidth >= 1180
+        builder: (context, constraints) => constraints.maxWidth >= 1050
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1187,11 +1207,11 @@ class _FileListState extends State<_FileList> {
   DriveController get controller => widget.controller;
   final ScrollController _horizontalScroll = ScrollController();
 
-  double nameWidth = 470;
-  double accountWidth = 300;
+  double nameWidth = 380;
+  double accountWidth = 240;
   double locationWidth = 320;
-  double sizeWidth = 120;
-  double modifiedWidth = 220;
+  double sizeWidth = 100;
+  double modifiedWidth = 180;
 
   @override
   void dispose() {
@@ -1474,11 +1494,11 @@ class _FileListState extends State<_FileList> {
               title: Row(
                 children: [
                   _header('Name', nameWidth, (delta) {
-                    nameWidth = (nameWidth + delta).clamp(220, 900).toDouble();
+                    nameWidth = (nameWidth + delta).clamp(180, 900).toDouble();
                   }),
                   _header('Account', accountWidth, (delta) {
                     accountWidth =
-                        (accountWidth + delta).clamp(180, 600).toDouble();
+                        (accountWidth + delta).clamp(150, 600).toDouble();
                   }),
                   if (controller.viewMode == FileViewMode.exactDuplicates ||
                       controller.viewMode == FileViewMode.nameConflicts)
@@ -1533,7 +1553,7 @@ class _FileListState extends State<_FileList> {
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       color: Color(0xff174ea6),
-                                      fontSize: 14,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -1542,7 +1562,7 @@ class _FileListState extends State<_FileList> {
                                     'Exact duplicate on another Drive',
                                     style: TextStyle(
                                       color: Color(0xffb3261e),
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   )
@@ -1551,7 +1571,7 @@ class _FileListState extends State<_FileList> {
                                     'Same name, different size',
                                     style: TextStyle(
                                       color: Color(0xff9a5b00),
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -1638,8 +1658,8 @@ class _FileListState extends State<_FileList> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: _accountColor(controller, item.accountId),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -1664,7 +1684,7 @@ class _FileListState extends State<_FileList> {
                           message: size(controller.sizeOf(item)),
                           child: Text(
                             size(controller.sizeOf(item)),
-                            style: const TextStyle(fontSize: 13),
+                            style: const TextStyle(fontSize: 12),
                           ),
                         ),
                       ),
@@ -1678,7 +1698,7 @@ class _FileListState extends State<_FileList> {
                             item.modifiedTime == null
                                 ? '—'
                                 : DateFormat.yMMMd().add_jm().format(item.modifiedTime!.toLocal()),
-                            style: const TextStyle(fontSize: 13),
+                            style: const TextStyle(fontSize: 12),
                           ),
                         ),
                       ),
