@@ -1,8 +1,25 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
-Status: Owner confirmed the read-only candidate runs with three Google and two OneDrive accounts. The next private candidate implements disk-backed verified transfers, conditional OneDrive source cleanup, an expandable tree and internal drag/drop. Windows CI and owner transfer acceptance remain gates. See [current scope and limitations](WINDOWS-VERIFIED-TRANSFERS.md).
+Status: Owner confirmed the read-only candidate runs with three Google and two OneDrive accounts. The verified-transfer candidate passed Analyze, all 23 tests, Windows compilation, portable packaging and installer packaging. Owner real-account transfer acceptance is the remaining private-test gate. See [current scope and limitations](WINDOWS-VERIFIED-TRANSFERS.md).
 
-## Verified private Windows candidate
+## Current verified-transfer candidate
+
+- Exact runtime commit: `a6d69037c92fbb93c18eba82c0f30581a09d81e5`.
+- Successful workflow: `34049666817`; job: `101530868965`.
+- Portable artifact: `9994208046`, 12,761,683 bytes;
+  SHA-256 `d524532faabdf4ad13a7835842345a3a6010176cabee9748a7cecc2d3de33961`.
+- Installer artifact: `9994208323`, 10,654,930 bytes;
+  SHA-256 `93a29ba578bcb0b52cfb80d68dba7be51dfa05abe113840f204129edab7f5d7b`.
+- Tests cover denied/missing consent, same-size corrupted destination contents,
+  source version changes after confirmation, conditional If-Match conflicts,
+  token-free upload/download URLs, sequential upload chunk boundaries, lazy
+  indexing, authentication and compact layouts. No 1 GiB real-account throughput
+  or end-to-end native drag gesture acceptance is claimed by these CI tests.
+- Google originals and source folder containers are retained. Native Google
+  same-account copies preserve format and are explicitly not byte-verified.
+- Main, Android, Store version and Partner Center remain outside this candidate.
+
+## Previous read-only Windows candidate
 - Exact code commit: bcb352194c61873b97c8f84e5f420738d46e898a
 - Successful workflow run: 34047263513; job: 101524434622
 - Portable ZIP artifact: FarooqDrive-Windows-x64; ID: 9993544705; bytes: 12696379

@@ -27,3 +27,9 @@ Read-only means OneDrive upload, copy, move, rename and Trash are deliberately b
 یہ صرف Windows کا نجی OneDrive test ہے۔ Add account سے Microsoft OneDrive منتخب کرکے browser میں login کریں، folders اور quota دیکھیں، پھر 32 MiB سے چھوٹی آزمائشی فائل download کریں۔ App بند کرکے دوبارہ کھولیں اور account کی بحالی چیک کریں۔
 
 اس build میں OneDrive پر upload، move، copy یا delete دستیاب نہیں۔ بڑی فائلوں کا عارضی disk folder اور اصل فائل ہٹانے سے پہلے آخری Yes/No والا مرحلہ ابھی تیار نہیں۔ اس حفاظتی مرحلے کے تیار ہونے تک تمام providers کے Move اور Cut/Paste عارضی طور پر بند ہیں؛ Google Copy دستیاب ہے۔ Microsoft Store پر یہ build جمع نہ کروائیں۔
+# Updated private candidate
+
+The owner has completed the read-only account sign-in check. For the new
+verified-transfer candidate, use [this acceptance guide](WINDOWS-VERIFIED-TRANSFERS.md)
+and [the exact build record](ONEDRIVE-WINDOWS-IMPLEMENTATION.md). The read-only
+instructions below are retained as the previous milestone's history.
