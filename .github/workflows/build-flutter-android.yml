@@ -1,0 +1,48 @@
+name: Build FarooqDrive Android Private Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [android-foundation]
+    paths:
+      - 'apps/flutter/**'
+      - '.github/workflows/build-flutter-android.yml'
+      - 'codemagic.yaml'
+
+jobs:
+  android-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create Android runner
+        working-directory: apps/flutter
+        run: |
+          flutter create --platforms=android --org com.farooqdrive --project-name farooqdrive .
+          sed -i 's/com\.farooqdrive\.farooqdrive/com.farooqdrive.app/g' android/app/build.gradle.kts
+          sed -i 's/com\.farooqdrive\.farooqdrive/com.farooqdrive.app/g' android/app/src/main/kotlin/com/farooqdrive/farooqdrive/MainActivity.kt
+          rm -f test/widget_test.dart
+      - name: Restore official app icon source
+        working-directory: apps/flutter
+        run: base64 --decode assets/FarooqDrive.png.base64 > assets/FarooqDrive.png
+      - name: Install packages
+        working-directory: apps/flutter
+        run: flutter pub get
+      - name: Analyze
+        working-directory: apps/flutter
+        run: flutter analyze
+      - name: Test
+        working-directory: apps/flutter
+        run: flutter test
+      - name: Build private debug APK
+        working-directory: apps/flutter
+        run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FarooqDrive-Android-Private-Debug
+          path: apps/flutter/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
