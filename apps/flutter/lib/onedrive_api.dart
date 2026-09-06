@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -121,18 +120,35 @@ class OneDriveApi extends CloudDriveApi {
   }
 
   @override
-  Future<List<DriveItem>> listAllFiles(DriveAccount account) async {
-    final queue = Queue<String>()..add(rootFolderId);
-    final visited = <String>{};
-    final items = <DriveItem>[];
-    while (queue.isNotEmpty) {
-      final id = queue.removeFirst();
-      if (!visited.add(id)) continue;
-      final children = await listFolder(account, id);
-      items.addAll(children);
-      queue.addAll(children.where((item) => item.isFolder && item.ownedByMe).map((item) => item.id));
+  Future<List<DriveItem>> listAllFiles(DriveAccount account, {void Function(int count)? onProgress}) async {
+    // Initial delta enumerates the entire drive hierarchy in pages, rather than
+    // issuing a children request for every folder (including special folders).
+    Uri? uri = Uri.parse('$_base/me/drive/root/delta').replace(queryParameters: {
+      r'$top': '200', r'$select': 'id,name,size,folder,file,parentReference,lastModifiedDateTime,webUrl,remoteItem,package,deleted,root',
+    });
+    final seen = <String>{};
+    final items = <String, DriveItem>{};
+    while (uri != null) {
+      if (!seen.add(uri.toString())) throw const DriveApiException('OneDrive repeated a scan page. Please retry.');
+      final data = await _json(account, uri);
+      if (data['value'] is! List) throw const DriveApiException('OneDrive scan returned an invalid page.');
+      for (final value in data['value'] as List) {
+        final row = value as Map<String, dynamic>;
+        final id = row['id'] as String;
+        if (row['deleted'] != null || row['root'] != null) {
+          items.remove(id);
+        } else {
+          items[id] = parseItem(row, account);
+        }
+      }
+      onProgress?.call(items.length);
+      final next = data['@odata.nextLink'] as String?;
+      if (next == null && data['@odata.deltaLink'] is! String) {
+        throw const DriveApiException('OneDrive scan did not confirm completion. Previous index retained.');
+      }
+      uri = next == null ? null : Uri.parse(next);
     }
-    return items;
+    return items.values.toList();
   }
 
   @override

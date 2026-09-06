@@ -37,7 +37,7 @@ abstract class CloudDriveApi {
   String get rootFolderLabel;
 
   Future<List<DriveItem>> listFolder(DriveAccount account, String folderId);
-  Future<List<DriveItem>> listAllFiles(DriveAccount account);
+  Future<List<DriveItem>> listAllFiles(DriveAccount account, {void Function(int count)? onProgress});
   Future<DriveAccount> refreshQuota(DriveAccount account);
   Future<String> createFolder(
     DriveAccount account, String parentId, String name,

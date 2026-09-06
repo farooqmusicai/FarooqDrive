@@ -139,23 +139,27 @@ class GoogleDriveApi extends CloudDriveApi {
   }
 
   @override
-  Future<List<DriveItem>> listAllFiles(DriveAccount account) async {
+  Future<List<DriveItem>> listAllFiles(DriveAccount account, {void Function(int count)? onProgress}) async {
     final items = <DriveItem>[];
     String? pageToken;
+    final seen = <String>{};
     do {
+      if (!seen.add(pageToken ?? '')) throw const DriveApiException('Google repeated a scan page. Please retry.');
       final query = <String, String>{
         'q': 'trashed=false',
         'spaces': 'drive',
         'pageSize': '1000',
         'fields':
-            'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,ownedByMe,capabilities(canDownload))',
+            'nextPageToken,incompleteSearch,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,ownedByMe,capabilities(canDownload))',
         if (pageToken != null) 'pageToken': pageToken,
       };
       final uri = Uri.parse('$_api/files').replace(queryParameters: query);
-      final data = await _json(account, uri.toString());
+      final data = await _json(account, uri.toString()).timeout(const Duration(seconds: 60));
+      if (data['incompleteSearch'] == true) throw const DriveApiException('Google reported incomplete scan results. Previous index retained.');
       items.addAll((data['files'] as List? ?? const [])
           .cast<Map<String, dynamic>>()
           .map((json) => DriveItem.fromJson(json, account: account)));
+      onProgress?.call(items.length);
       pageToken = data['nextPageToken'] as String?;
     } while (pageToken != null && pageToken.isNotEmpty);
     return items;

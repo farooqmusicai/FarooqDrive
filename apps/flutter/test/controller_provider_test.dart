@@ -42,7 +42,7 @@ class RecordingApi extends GoogleDriveApi {
   @override
   Future<List<DriveItem>> listFolder(DriveAccount account, String folderId) async => List.of(items);
   @override
-  Future<List<DriveItem>> listAllFiles(DriveAccount account) async {
+  Future<List<DriveItem>> listAllFiles(DriveAccount account, {void Function(int count)? onProgress}) async {
     scans++;
     return List.of(items);
   }

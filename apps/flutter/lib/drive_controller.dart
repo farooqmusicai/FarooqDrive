@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:crypto/crypto.dart';
 
 import 'package:flutter/foundation.dart';
@@ -543,13 +544,10 @@ class DriveController extends ChangeNotifier {
 
   Future<void> setViewMode(FileViewMode value) async {
     final scan = value == FileViewMode.exactDuplicates || value == FileViewMode.nameConflicts;
-    if (scan && !indexReady) {
-      await _buildGlobalIndex();
-      return; // Never replace the folder the user navigated to during the scan.
-    }
     viewMode = value;
     selectedKeys.clear();
     notifyListeners();
+    if (scan && !indexReady) await _buildGlobalIndex();
   }
 
   Future<void> _buildGlobalIndex() async {
@@ -558,15 +556,26 @@ class DriveController extends ChangeNotifier {
     final targets = List<DriveAccount>.of(accounts);
     indexing = true;
     scanStatus = 'Scan running in background — you can continue working.';
+    String stage = 'Starting scan';
     notifyListeners();
     try {
       final collected = <DriveItem>[];
       for (final account in targets) {
-        final group = await apiFor(account).listAllFiles(account);
+        stage = '${account.provider == CloudProviderType.onedrive ? "OneDrive" : "Google Drive"} — ${account.email}';
+        scanStatus = 'Scanning $stage — waiting for the first page…';
+        notifyListeners();
+        final group = await apiFor(account).listAllFiles(account, onProgress: (count) {
+          if (_disposed || generation != _indexGeneration) throw const DriveApiException('Scan cancelled because files changed.');
+          scanStatus = 'Scanning $stage — $count items read. You can continue working.';
+          notifyListeners();
+        });
         if (_disposed || generation != _indexGeneration) return;
         collected.addAll(_withLocations(group));
         await Future<void>.delayed(Duration.zero);
       }
+      stage = 'Matching names and sizes';
+      scanStatus = '$stage — ${collected.length} items read.';
+      notifyListeners();
       final names = <String, List<DriveItem>>{};
       for (var i = 0; i < collected.length; i++) {
         final item = collected[i];
@@ -574,6 +583,7 @@ class DriveController extends ChangeNotifier {
         if (i % 250 == 0) await Future<void>.delayed(Duration.zero);
       }
       final exact = <String>{}, conflicts = <String>{};
+      var matchedGroups = 0;
       for (final group in names.values) {
         final sizes = <int?, List<DriveItem>>{};
         for (final item in group) { sizes.putIfAbsent(item.size, () => []).add(item); }
@@ -581,7 +591,7 @@ class DriveController extends ChangeNotifier {
           if (entry.key != null && entry.value.length > 1) exact.addAll(entry.value.map(keyOf));
         }
         if (group.length > 1 && (sizes.length > 1 || sizes.containsKey(null))) conflicts.addAll(group.map(keyOf));
-        if (exact.length + conflicts.length > 0) await Future<void>.delayed(Duration.zero);
+        if (++matchedGroups % 250 == 0) await Future<void>.delayed(Duration.zero);
       }
       if (_disposed || generation != _indexGeneration) return;
       folderSizes.clear();
@@ -592,10 +602,19 @@ class DriveController extends ChangeNotifier {
       indexReady = true;
       indexStale = false;
       indexScannedAt = DateTime.now();
-      scanStatus = 'Scan complete — select a duplicate tab to see results.';
+      scanStatus = 'Scan complete: ${collected.length} items; ${exact.length} matching-name/size files; ${conflicts.length} same-name conflicts.';
       await _saveIndex();
-    } catch (_) {
-      if (!_disposed) scanStatus = 'Scan failed. Check account access and try again.';
+    } catch (exception) {
+      if (!_disposed) {
+        final reason = exception is TimeoutException ? 'No response within 60 seconds. Check the connection and retry.'
+            : exception is DriveApiException ? (exception.statusCode == 401
+                ? 'Sign-in expired. Reconnect this account, then Rescan all.'
+                : exception.statusCode == 403 ? 'Access denied. Check this account’s permissions.'
+                : 'Provider scan error${exception.statusCode == null ? "" : " (${exception.statusCode})"}. ${exception.message.startsWith("OneDrive") || exception.message.startsWith("Google") ? exception.message : "Check account access and retry."}')
+            : 'Could not process the scan. Previous saved results remain; contact support with this stage.';
+        scanStatus = 'Scan failed at $stage. $reason Previous index retained.';
+        error = scanStatus;
+      }
     } finally {
       if (!_disposed) {
         if (generation != _indexGeneration) scanStatus = 'Files changed during scan. Run the scan again for current results.';
