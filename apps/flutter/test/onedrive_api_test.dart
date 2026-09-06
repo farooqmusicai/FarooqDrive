@@ -82,6 +82,7 @@ void main() {
   });
 
   test('upload session never receives Graph token and creates a renamed copy', () async {
+    const length = 4 * 1024 * 1024 + 3;
     final client = MockClient((request) async {
       if (request.method == 'POST') {
         expect(request.url.host, 'graph.microsoft.com');
@@ -89,15 +90,36 @@ void main() {
         return http.Response(jsonEncode({'uploadUrl': 'https://upload.example.invalid/session'}), 200);
       }
       expect(request.headers.containsKey('Authorization'), false);
-      expect(request.headers['Content-Range'], 'bytes 0-2/3');
-      expect(request.bodyBytes, [1,2,3]);
+      expect(request.headers['Content-Range'], 'bytes 0-${length - 1}/$length');
+      expect(request.bodyBytes.length, length);
       return http.Response('{"id":"new"}', 201);
     });
     addTearDown(client.close);
     final api = OneDriveApi(tokenResolver: token, client: client);
-    expect(await api.uploadTransfer(account, 'root', 'file', 'application/octet-stream', 3,
-      (start,end) async => Uint8List.fromList([1,2,3])), 'new');
+    expect(await api.uploadTransfer(account, 'root', 'file', 'application/octet-stream', length,
+      (start,end) async => Uint8List(end - start)), 'new');
   });
+
+  for (final length in [0, 3]) {
+    test('direct OneDrive upload supports $length bytes and never replaces by default', () async {
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        expect(request.method, 'PUT');
+        expect(request.url.pathSegments, ['v1.0', 'me', 'drive', 'root:', 'file name.txt:', 'content']);
+        expect(request.url.queryParameters['@microsoft.graph.conflictBehavior'], 'rename');
+        expect(request.bodyBytes.length, length);
+        if (calls == 1) return http.Response('', 401);
+        expect(request.headers['Authorization'], 'Bearer new');
+        return http.Response('{"id":"new"}', 201);
+      });
+      addTearDown(client.close);
+      final api = OneDriveApi(tokenResolver: token, client: client);
+      expect(await api.uploadTransfer(account, 'root', 'file name.txt', 'application/octet-stream', length,
+        (start,end) async => Uint8List(end - start)), 'new');
+      expect(calls, 2);
+    });
+  }
 
   test('multi-chunk uploads honor sequential 320 KiB aligned ranges', () async {
     const chunk = 10 * 1024 * 1024;

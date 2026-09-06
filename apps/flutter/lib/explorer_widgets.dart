@@ -3,6 +3,17 @@ import 'package:url_launcher/url_launcher.dart';
 import 'drive_controller.dart';
 import 'models.dart';
 
+const explorerViewLabels = <String, String>{
+  'extraLarge': 'Extra large icons',
+  'icons': 'Large icons',
+  'medium': 'Medium icons',
+  'small': 'Small icons',
+  'list': 'List',
+  'details': 'Details',
+  'tiles': 'Tiles',
+  'content': 'Content',
+};
+
 class CloudDragSource extends StatelessWidget {
   const CloudDragSource({super.key, required this.controller, required this.item, required this.child});
   final DriveController controller;
@@ -12,6 +23,7 @@ class CloudDragSource extends StatelessWidget {
   Widget build(BuildContext context) {
     final selection = controller.selectedKeys.contains(controller.keyOf(item)) ? controller.selectedItems : [item];
     return Draggable<List<DriveItem>>(
+      hitTestBehavior: HitTestBehavior.opaque,
       data: List.unmodifiable(selection), maxSimultaneousDrags: controller.loading ? 0 : 1,
       feedback: Material(elevation: 6, borderRadius: BorderRadius.circular(8), child: Padding(
         padding: const EdgeInsets.all(12), child: Text('${selection.length} item(s) · ${item.name}'))),
@@ -46,7 +58,8 @@ class CloudDropTarget extends StatelessWidget {
       await controller.paste();
     },
     builder: (context, candidates, rejected) => DecoratedBox(
-      decoration: BoxDecoration(border: Border.all(color: candidates.isEmpty ? Colors.transparent : Colors.blueAccent, width: 2)), child: child),
+      decoration: BoxDecoration(color: candidates.isEmpty ? null : Colors.blue.withValues(alpha: .08),
+        border: Border.all(color: candidates.isEmpty ? Colors.transparent : Colors.blueAccent, width: 2)), child: child),
   );
 }
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,7 @@ import 'models.dart';
 import 'microsoft_auth.dart';
 import 'onedrive_api.dart';
 import 'verified_transfer.dart';
+import 'transfer_spool.dart';
 
 class DriveController extends ChangeNotifier {
   DriveController({CloudDriveApi? api, GoogleAccountAuthorizer? authorizer,
@@ -574,7 +576,8 @@ class DriveController extends ChangeNotifier {
   Future<void> moveItemToDriveRoot(DriveItem item, String accountId) async {
     setClipboardItem(ClipboardMode.move, item);
     selectedAccountId = accountId;
-    paths[accountId] = <FolderCrumb>[const FolderCrumb('root', 'My Drive')];
+    final provider = apiFor(accountById(accountId)!);
+    paths[accountId] = <FolderCrumb>[FolderCrumb(provider.rootFolderId, provider.rootFolderLabel)];
     await paste();
   }
 
@@ -582,7 +585,7 @@ class DriveController extends ChangeNotifier {
     if (!folder.isFolder || clipboard == null) return;
     selectedAccountId = folder.accountId;
     paths[folder.accountId] = <FolderCrumb>[
-      const FolderCrumb('root', 'My Drive'),
+      FolderCrumb(apiFor(accountById(folder.accountId)!).rootFolderId, apiFor(accountById(folder.accountId)!).rootFolderLabel),
       FolderCrumb(folder.id, folder.name),
     ];
     await paste();
@@ -662,6 +665,56 @@ class DriveController extends ChangeNotifier {
         );
         await _afterMutation();
       });
+
+  Future<void> uploadFromStream(String name, Stream<List<int>> input, int size) => _guard(() async {
+    final account = selectedAccount;
+    if (account == null) throw const DriveApiException('Open the destination Drive first.');
+    if (size > VerifiedTransfer.fileLimit) throw const DriveApiException('Private upload limit is 1 GiB per file.');
+    final parent = currentFolderId;
+    final provider = apiFor(account);
+    final spool = await TransferSpool.create();
+    transferActive = true;
+    _cancelTransfer = false;
+    transferResult = '';
+    try {
+      operationMessage = 'Preparing $name in temporary storage…';
+      notifyListeners();
+      await spool.write(input, size, (_) => _checkTransferCancelled());
+      final id = await provider.uploadTransfer(account, parent, name, 'application/octet-stream', spool.length, (start, end) {
+        _checkTransferCancelled();
+        operationMessage = 'Uploading $name: ${(start / 1048576).toStringAsFixed(1)} / ${(size / 1048576).toStringAsFixed(1)} MiB';
+        notifyListeners();
+        return spool.readRange(start, end);
+      });
+      final uploaded = await provider.snapshot(account, id);
+      if (uploaded.item.size != spool.length) throw const DriveApiException('Uploaded size differs. Local original retained.');
+      operationMessage = 'Verifying uploaded $name…';
+      notifyListeners();
+      final download = await provider.openTransfer(account, uploaded.item);
+      var received = 0;
+      final digest = await sha256.bind(download.stream.timeout(const Duration(seconds: 60)).map((bytes) {
+        _checkTransferCancelled();
+        received += bytes.length;
+        if (received > size) throw const DriveApiException('Uploaded content size changed.');
+        return bytes;
+      })).first;
+      if (received != size || digest.toString() != spool.digest ||
+          (await provider.snapshot(account, id)).revision != uploaded.revision) {
+        throw const DriveApiException('Upload content verification failed. Local original retained. Review the destination copy.');
+      }
+      transferResult = 'Uploaded and SHA-256 verified: ${uploaded.item.name} → ${account.email}. Local original retained.';
+      await _recordActivity('Upload verified', transferResult, accountEmail: account.email);
+    } on DriveApiException {
+      transferResult = 'Upload interrupted. Local original retained. A partial or completed destination copy may remain; see Activity for the error.';
+      rethrow;
+    } catch (_) {
+      throw const DriveApiException('Upload interrupted. Check temporary disk space and your connection. Local original retained.');
+    } finally {
+      transferActive = false;
+      await spool.close();
+      await _afterMutation();
+    }
+  }, message: 'Uploading local file…');
 
   Future<Uint8List> download(DriveItem item) async {
     loading = true;

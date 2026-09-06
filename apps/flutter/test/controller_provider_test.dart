@@ -169,4 +169,19 @@ void main() {
       expect(controller.error, ['changed','corrupt'].contains(scenario) ? isNotNull : isNull);
     });
   }
+
+  for (final corrupt in [false, true]) {
+    test('local streamed OneDrive upload verifies contents, corrupt=$corrupt', () async {
+      final api = RecordingApi(CloudProviderType.onedrive)..corrupt = corrupt;
+      final controller = DriveController(providers: {CloudProviderType.onedrive: api});
+      addTearDown(controller.dispose);
+      controller.accounts.add(account('m', CloudProviderType.onedrive));
+      controller.selectedAccountId = 'm';
+      await controller.uploadFromStream('file.bin', Stream.value([1,2,3]), 3);
+      expect(api.uploads, 1);
+      expect(api.downloads, 1);
+      expect(api.trashes, 0);
+      expect(controller.error, corrupt ? contains('verification failed') : isNull);
+    });
+  }
 }

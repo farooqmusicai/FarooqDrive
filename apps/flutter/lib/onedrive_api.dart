@@ -26,6 +26,15 @@ class OneDriveApi extends CloudDriveApi {
 
   static String _item(String id) => id == 'root' ? 'root' : 'items/${Uri.encodeComponent(id)}';
 
+  DriveApiException _failure(http.Response response, String action) {
+    var code = '';
+    try {
+      final value = ((jsonDecode(response.body) as Map)['error'] as Map?)?['code'];
+      if (value is String && RegExp(r'^[A-Za-z0-9_]{1,80}$').hasMatch(value)) code = ': $value';
+    } catch (_) {}
+    return DriveApiException('OneDrive $action failed (${response.statusCode}$code). Check account permissions, free cloud space and the destination filename. Originals are retained.', statusCode: response.statusCode);
+  }
+
   Future<http.Response> _get(DriveAccount account, Uri uri) async {
     if (uri.scheme != 'https' || uri.host != 'graph.microsoft.com' ||
         uri.port != 443 || uri.userInfo.isNotEmpty || !uri.path.startsWith('/v1.0/')) {
@@ -183,7 +192,7 @@ class OneDriveApi extends CloudDriveApi {
         'Content-Type': 'application/json', if (tag != null) 'If-Match': tag});
     if (body != null) request.body = jsonEncode(body);
     final response = await http.Response.fromStream(await _client.send(request).timeout(const Duration(seconds: 60)));
-    if (response.statusCode < 200 || response.statusCode >= 300) throw DriveApiException('OneDrive operation failed (${response.statusCode}). Source cleanup stops on any failure.', statusCode: response.statusCode);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw _failure(response, method == 'POST' ? 'create/upload session' : 'operation');
     if (response.bodyBytes.isEmpty) return {};
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -227,7 +236,21 @@ class OneDriveApi extends CloudDriveApi {
   Future<String> uploadTransfer(DriveAccount account, String parentId,
       String name, String mimeType, int length,
       Future<Uint8List> Function(int, int) readRange) async {
-    if (length == 0) throw const DriveApiException('Zero-byte OneDrive uploads are not supported in this candidate. Source retained.');
+    if (length < 0 || length > 1024 * 1024 * 1024) throw const DriveApiException('Private transfer limit is 1 GiB per file.');
+    if (length <= 4 * 1024 * 1024) {
+      final uri = Uri.parse('$_base/me/drive/${_item(parentId)}:/${Uri.encodeComponent(name)}:/content')
+          .replace(queryParameters: {'@microsoft.graph.conflictBehavior': 'rename'});
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final request = http.Request('PUT', uri)..followRedirects = false
+          ..headers.addAll({'Authorization': 'Bearer ${await _tokenResolver(account, force: attempt == 1)}', 'Content-Type': mimeType})
+          ..bodyBytes = await readRange(0, length);
+        final response = await http.Response.fromStream(await _client.send(request).timeout(const Duration(seconds: 60))).timeout(const Duration(seconds: 60));
+        if (response.statusCode == 401 && attempt == 0) continue;
+        if (response.statusCode != 200 && response.statusCode != 201) throw _failure(response, 'upload');
+        return (jsonDecode(response.body) as Map)['id'] as String;
+      }
+      throw const DriveApiException('OneDrive sign-in could not be renewed. Reconnect the account.');
+    }
     final data = await _write(account, 'POST', '${_item(parentId)}:/${Uri.encodeComponent(name)}:/createUploadSession',
       body: {'item': {'name': name, '@microsoft.graph.conflictBehavior': 'rename'}});
     final uri = Uri.parse(data['uploadUrl'] as String);
@@ -244,7 +267,7 @@ class OneDriveApi extends CloudDriveApi {
         if (end != length) throw const DriveApiException('OneDrive completed an upload early.');
         return (jsonDecode(response.body) as Map)['id'] as String;
       }
-      if (response.statusCode != 202 || end == length) throw const DriveApiException('OneDrive upload interrupted. Source retained; retry creates a new copy.');
+      if (response.statusCode != 202 || end == length) throw _failure(response, 'upload chunk');
       final next = (jsonDecode(response.body) as Map)['nextExpectedRanges'] as List?;
       if (next == null || next.length != 1 || next.single != '$end-') throw const DriveApiException('Unexpected OneDrive upload offset.');
       offset = end;

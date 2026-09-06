@@ -103,14 +103,15 @@ class FarooqDriveApp extends StatelessWidget {
 }
 
 class FileManagerPage extends StatefulWidget {
-  const FileManagerPage({super.key});
+  const FileManagerPage({super.key, this.controller});
+  final DriveController? controller;
 
   @override
   State<FileManagerPage> createState() => _FileManagerPageState();
 }
 
 class _FileManagerPageState extends State<FileManagerPage> {
-  final controller = DriveController();
+  late final controller = widget.controller ?? DriveController();
   bool _sidebarPinned = false;
 
   @override
@@ -134,7 +135,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
       )) ?? false;
     };
     _loadSidebarPreference();
-    controller.initialize();
+    if (widget.controller == null) controller.initialize();
   }
 
   Future<void> _loadSidebarPreference() async {
@@ -162,9 +163,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   @override
   void dispose() {
-    controller
-      ..removeListener(_changed)
-      ..dispose();
+    controller.removeListener(_changed);
+    if (widget.controller == null) controller.dispose();
     super.dispose();
   }
 
@@ -286,10 +286,19 @@ class _FileManagerPageState extends State<FileManagerPage> {
   }
 
   Future<void> _upload() async {
-    final result = await FilePicker.platform.pickFiles(withData: true);
+    final result = await FilePicker.platform.pickFiles(withData: !controller.supportsMicrosoft, withReadStream: controller.supportsMicrosoft);
     final file = result?.files.single;
-    if (file?.bytes == null) return;
-    await controller.upload(file!.name, file.bytes!, null);
+    if (file == null) return;
+    if (controller.supportsMicrosoft) {
+      if (file.readStream == null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The selected file could not be read. Download it locally first, then retry.')));
+        return;
+      }
+      await controller.uploadFromStream(file.name, file.readStream!, file.size);
+      return;
+    }
+    if (file.bytes == null) return;
+    await controller.upload(file.name, file.bytes!, null);
   }
 
   Future<void> _download() async {
@@ -502,7 +511,6 @@ class _FileManagerPageState extends State<FileManagerPage> {
                   ),
                   if (controller.loading) const LinearProgressIndicator(),
                   _StorageSummary(controller: controller),
-                  _NavigationBar(controller: controller),
                   _Toolbar(
                     controller: controller,
                     onUpload: _upload,
@@ -530,17 +538,12 @@ class _FileManagerPageState extends State<FileManagerPage> {
                     onDownload: _download,
                   ),
                   _FileViews(controller: controller),
-                  if (controller.supportsMicrosoft) Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                    child: Tooltip(message: TransferSpool.cachePath, child: const Text(
-                      'Cloud transfers use temporary disk space and extra verification downloads. Private limit: 1 GiB/file. See Help for cleanup and limits.',
-                      style: TextStyle(fontSize: 11)))),
-                  if (controller.transferResult.isNotEmpty) Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                    child: SelectableText(controller.transferResult, style: const TextStyle(fontSize: 12))),
                     ])),
                   ),
-                  Expanded(child: _FileList(controller: controller)),
+                  Expanded(child: controller.selectedAccountId == null
+                    ? _FileList(controller: controller)
+                    : CloudDropTarget(controller: controller, accountId: controller.selectedAccountId!,
+                        path: List.of(controller.currentPath), child: _FileList(controller: controller))),
                 ],
               ),
             ),
@@ -851,20 +854,20 @@ class _DriveTile extends StatelessWidget {
         title: Text(title,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700)),
+                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w400)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               subtitle,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: subtitleColor ?? const Color(0xff9db5d1)),
+              style: TextStyle(color: subtitleColor ?? const Color(0xff9db5d1), fontSize: 13, fontWeight: FontWeight.w400),
             ),
             if (quota != null)
               Text(
                 quota!,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xff9db5d1), fontSize: 12),
+                style: const TextStyle(color: Color(0xff9db5d1), fontSize: 13),
               ),
           ],
         ),
@@ -917,6 +920,30 @@ class _Header extends StatelessWidget {
                   ),
                 ),
                 IconButton(
+                  key: const ValueKey('transfer-information'),
+                  tooltip: 'Transfer information',
+                  icon: const Icon(Icons.info_outline, color: Colors.red),
+                  onPressed: () => showDialog<void>(context: context, builder: (context) => AlertDialog(
+                    title: const Text('Transfer information', style: TextStyle(color: Colors.red)),
+                    content: SizedBox(width: 560, child: SingleChildScrollView(child: Column(
+                      mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const SelectableText('Cloud transfers use temporary disk space and extra verification downloads. Private limit: 1 GiB/file. See Help for cleanup and limits.',
+                        style: TextStyle(fontSize: 11, color: Colors.red)),
+                      const SizedBox(height: 12),
+                      SelectableText('Temporary storage: ${TransferSpool.cachePath}', style: const TextStyle(fontSize: 11, color: Colors.red)),
+                      if (controller.transferResult.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        SelectableText(controller.transferResult, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                      ],
+                      if (controller.error != null) ...[
+                        const SizedBox(height: 12),
+                        SelectableText(controller.error!, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                      ],
+                    ]))),
+                    actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+                  )),
+                ),
+                IconButton(
                   tooltip: 'Activity — last 7 days',
                   onPressed: onActivity,
                   icon: Badge(
@@ -967,66 +994,36 @@ class _Header extends StatelessWidget {
 }
 
 class _NavigationBar extends StatelessWidget {
-  const _NavigationBar({required this.controller});
+  const _NavigationBar({required this.controller, required this.actions});
   final DriveController controller;
+  final Widget actions;
 
   @override
   Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xffdce3ed)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: 'Back',
-              onPressed: controller.canGoBack ? controller.goBack : null,
-              icon: const Icon(Icons.arrow_back),
-            ),
-            IconButton(
-              tooltip: 'Up one folder',
-              onPressed: controller.canGoUp ? controller.goUp : null,
-              icon: const Icon(Icons.arrow_upward),
-            ),
-            const SizedBox(
-              height: 28,
-              child: VerticalDivider(width: 12),
-            ),
-            if (controller.allDrives)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  'All Drives',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              )
-            else
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (var index = 0;
-                          index < controller.currentPath.length;
-                          index++) ...[
-                        TextButton(
-                          onPressed: () => controller.openCrumb(index),
-                          child: Text(controller.currentPath[index].name),
-                        ),
-                        if (index < controller.currentPath.length - 1)
-                          const Icon(Icons.chevron_right, size: 18),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
+    margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    decoration: BoxDecoration(color: Colors.white,
+      border: Border.all(color: const Color(0xffdce3ed)), borderRadius: BorderRadius.circular(12)),
+    child: LayoutBuilder(builder: (context, constraints) => Row(children: [
+      SizedBox(width: (constraints.maxWidth * .20).clamp(160, 260).toDouble(),
+        child: Row(children: [
+          IconButton(tooltip: 'Back', onPressed: controller.canGoBack ? controller.goBack : null, icon: const Icon(Icons.arrow_back)),
+          IconButton(tooltip: 'Up one folder', onPressed: controller.canGoUp ? controller.goUp : null, icon: const Icon(Icons.arrow_upward)),
+          Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+            if (controller.allDrives) const Text('All Drives')
+            else for (var index = 0; index < controller.currentPath.length; index++) ...[
+              CloudDropTarget(controller: controller, accountId: controller.selectedAccountId!,
+                path: controller.currentPath.take(index + 1).toList(),
+                child: TextButton(onPressed: () => controller.openCrumb(index),
+                  child: Text(controller.currentPath[index].name, style: const TextStyle(fontSize: 12)))),
+              if (index < controller.currentPath.length - 1) const Icon(Icons.chevron_right, size: 16),
+            ],
+          ]))),
+        ])),
+      const SizedBox(height: 28, child: VerticalDivider(width: 12)),
+      Expanded(child: actions),
+    ])),
+  );
 }
 
 class _StorageSummary extends StatelessWidget {
@@ -1167,35 +1164,29 @@ class _Toolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final count = controller.selectedItems.length;
     final hasDrive = controller.selectedAccount != null;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xffdce3ed)),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
+    return _NavigationBar(controller: controller,
+      actions: Row(children: [Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
         children: [
           FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 36), textStyle: const TextStyle(fontSize: 12)),
             onPressed: hasDrive ? onNewFolder : null,
             icon: const Icon(Icons.create_new_folder_outlined),
             label: const Text('New folder'),
           ),
           FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 36), textStyle: const TextStyle(fontSize: 12)),
             onPressed: hasDrive ? onUpload : null,
             icon: const Icon(Icons.upload),
             label: const Text('Upload'),
           ),
           TextButton.icon(
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6), minimumSize: const Size(0, 36), textStyle: const TextStyle(fontSize: 12)),
             onPressed: count > 0 ? onDownload : null,
             icon: const Icon(Icons.download),
             label: const Text('Download'),
           ),
           TextButton.icon(
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6), minimumSize: const Size(0, 36), textStyle: const TextStyle(fontSize: 12)),
             onPressed: count > 0
                 ? () => controller.setClipboard(ClipboardMode.copy)
                 : null,
@@ -1203,6 +1194,7 @@ class _Toolbar extends StatelessWidget {
             label: const Text('Copy'),
           ),
           TextButton.icon(
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6), minimumSize: const Size(0, 36), textStyle: const TextStyle(fontSize: 12)),
             onPressed: count > 0
                 ? () => controller.setClipboard(ClipboardMode.move)
                 : null,
@@ -1210,6 +1202,7 @@ class _Toolbar extends StatelessWidget {
             label: const Text('Cut'),
           ),
           TextButton.icon(
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6), minimumSize: const Size(0, 36), textStyle: const TextStyle(fontSize: 12)),
             onPressed: hasDrive && controller.clipboard != null
                 ? controller.paste
                 : null,
@@ -1217,11 +1210,13 @@ class _Toolbar extends StatelessWidget {
             label: const Text('Paste'),
           ),
           TextButton.icon(
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6), minimumSize: const Size(0, 36), textStyle: const TextStyle(fontSize: 12)),
             onPressed: count == 1 ? onRename : null,
             icon: const Icon(Icons.drive_file_rename_outline),
             label: const Text('Rename'),
           ),
           TextButton.icon(
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6), minimumSize: const Size(0, 36), textStyle: const TextStyle(fontSize: 12)),
             onPressed: count > 0 ? onTrash : null,
             icon: const Icon(Icons.delete_outline),
             label: const Text('Trash'),
@@ -1231,8 +1226,11 @@ class _Toolbar extends StatelessWidget {
             onPressed: controller.refresh,
             icon: const Icon(Icons.refresh),
           ),
+        ],
+      ))),
           DropdownButton<String>(
             value: controller.sort,
+            style: const TextStyle(fontSize: 13, color: Color(0xff333333)),
             underline: const SizedBox.shrink(),
             items: const [
               DropdownMenuItem(value: 'name', child: Text('Name')),
@@ -1244,8 +1242,15 @@ class _Toolbar extends StatelessWidget {
               if (value != null) controller.setSort(value);
             },
           ),
-        ],
-      ),
+          const SizedBox(width: 12),
+          DropdownButton<String>(value: controller.layout,
+            key: const ValueKey('explorer-view'),
+            underline: const SizedBox.shrink(),
+            style: const TextStyle(fontSize: 13, color: Color(0xff333333)),
+            onChanged: (value) { if (value != null) controller.setLayout(value); },
+            items: [for (final entry in explorerViewLabels.entries)
+              DropdownMenuItem(value: entry.key, child: Text(entry.value))]),
+      ]),
     );
   }
 }
@@ -1260,11 +1265,6 @@ class _FileViews extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              DropdownButton<String>(value: controller.layout,
-                onChanged: (value) { if (value != null) controller.setLayout(value); },
-                items: const [DropdownMenuItem(value: 'details', child: Text('Details')),
-                  DropdownMenuItem(value: 'list', child: Text('List')),
-                  DropdownMenuItem(value: 'icons', child: Text('Large icons'))]),
               ChoiceChip(
                 avatar: const Icon(Icons.select_all_outlined, size: 18),
                 label: Text('All (${controller.allItemCount})'),
@@ -1367,7 +1367,7 @@ class _FileListState extends State<_FileList> {
     if (!item.isFolder) return draggable;
     final account = controller.accountById(item.accountId)!;
     final api = controller.apiFor(account);
-    final path = controller.allDrives
+    final path = controller.allDrives || item.accountId != controller.selectedAccountId || controller.query.isNotEmpty
         ? [FolderCrumb(api.rootFolderId, api.rootFolderLabel)]
         : controller.currentPath;
     return CloudDropTarget(controller: controller, accountId: item.accountId,
@@ -1379,6 +1379,36 @@ class _FileListState extends State<_FileList> {
   double locationWidth = 320;
   double sizeWidth = 100;
   double modifiedWidth = 180;
+
+  Widget _viewBody(DriveItem item) {
+    final mode = controller.layout;
+    final checkbox = SizedBox(width: 30, height: 30, child: Checkbox(
+      value: controller.selectedKeys.contains(controller.keyOf(item)),
+      onChanged: (value) => controller.toggle(item, value ?? false)));
+    Widget icon(double pixels) => NativeFileIcon(fileName: item.name, isFolder: item.isFolder, size: pixels);
+    final name = Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13));
+    if (mode == 'list' || mode == 'small') {
+      return Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Row(children: [
+        checkbox, icon(16), const SizedBox(width: 6), Expanded(child: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
+      ]));
+    }
+    if (mode == 'tiles' || mode == 'content') {
+      return Padding(padding: const EdgeInsets.all(6), child: Row(children: [
+        checkbox, icon(mode == 'tiles' ? 40 : 56), const SizedBox(width: 10),
+        Expanded(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          name,
+          Text('${item.isFolder ? 'Folder' : size(controller.sizeOf(item))} · ${item.accountEmail}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+          if (mode == 'content') Text(item.modifiedTime == null ? item.mimeType : 'Modified ${DateFormat.yMMMd().add_jm().format(item.modifiedTime!.toLocal())}',
+            maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+        ])),
+      ]));
+    }
+    final pixels = mode == 'extraLarge' ? 144.0 : mode == 'icons' ? 96.0 : 48.0;
+    return Padding(padding: const EdgeInsets.all(6), child: Column(children: [
+      Align(alignment: Alignment.centerLeft, child: checkbox),
+      icon(pixels), const SizedBox(height: 4), name,
+    ]));
+  }
 
   @override
   void dispose() {
@@ -1632,19 +1662,19 @@ class _FileListState extends State<_FileList> {
               }.entries) SimpleDialogOption(onPressed: () => Navigator.pop(context, entry.key), child: Text(entry.value))]));
             if (action != null && context.mounted) await _runMenuAction(context, item, action);
           },
-          child: controller.layout == 'list' ? ListTile(
-            leading: Checkbox(value: controller.selectedKeys.contains(controller.keyOf(item)), onChanged: (value) => controller.toggle(item, value ?? false)),
-            title: Text(item.name), subtitle: Text(item.accountEmail), trailing: Text(size(controller.sizeOf(item))))
-          : Padding(padding: const EdgeInsets.all(8), child: Column(children: [
-              Row(children: [Checkbox(value: controller.selectedKeys.contains(controller.keyOf(item)), onChanged: (value) => controller.toggle(item, value ?? false)),
-                NativeFileIcon(fileName: item.name, isFolder: item.isFolder, size: 42)]),
-              Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-              Text(item.accountEmail, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-            ]))),
+          child: _viewBody(item)),
       ));
-      return Padding(padding: const EdgeInsets.all(16), child: controller.layout == 'list'
-        ? ListView.builder(itemCount: files.length, itemBuilder: (context, index) => tile(files[index]))
-        : GridView.builder(gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 200, mainAxisExtent: 150),
+      final dimensions = switch (controller.layout) {
+        'extraLarge' => (260.0, 240.0),
+        'icons' => (210.0, 195.0),
+        'medium' => (155.0, 150.0),
+        'small' => (260.0, 44.0),
+        'tiles' => (380.0, 95.0),
+        _ => (210.0, 195.0),
+      };
+      return Padding(padding: const EdgeInsets.all(16), child: ['list', 'content'].contains(controller.layout)
+        ? ListView.builder(itemExtent: controller.layout == 'list' ? 44 : 96, itemCount: files.length, itemBuilder: (context, index) => tile(files[index]))
+        : GridView.builder(gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: dimensions.$1, mainAxisExtent: dimensions.$2),
           itemCount: files.length, itemBuilder: (context, index) => tile(files[index])));
     }
     final allSelected =
