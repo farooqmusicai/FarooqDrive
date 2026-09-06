@@ -4,6 +4,19 @@ Your Google Drive and Microsoft OneDrive accounts in one file manager.
 
 [Open the Web App](https://farooqmusicai.github.io/FarooqDrive/) · [Website](https://www.mymandoob.com/farooqdrive/) · [Help and support](https://www.mymandoob.com/farooqdrive/support.html)
 
+## Microsoft OneDrive
+
+Connect OneDrive alongside Google Drive using **Add account → Microsoft OneDrive**. Personal Microsoft accounts and work/school accounts are supported by the sign-in configuration; organizational access depends on tenant consent and OneDrive availability.
+
+- Browse each connected account's folders, files and provider-reported storage, or use All Drives for a combined view.
+- Upload, download, create folders, rename and copy files. Use the same toolbar, sorting, views and internal drag-and-drop for both providers.
+- Copy between Google Drive and OneDrive through your device, with destination verification. Cut/Move follows the final-confirmation rules below.
+- Keep accounts separate: each row identifies its account, and hovering over the account shows its full name and email.
+
+**Owner verification, 6 September 2026:** OneDrive sign-in, folder listing and storage display work in the published Web App. This confirms browsing; it is not a claim that every account type or transfer scenario has been tested.
+
+[OneDrive guide](docs/ONEDRIVE-GUIDE.md) · [OneDrive اردو رہنمائی](docs/ONEDRIVE-GUIDE-URDU.md)
+
 ## Explorer features
 
 - Expand account folders in the left panel; browse with Back, Up and breadcrumbs.
@@ -32,8 +45,8 @@ Provider quotas, tenant consent and browser restrictions apply. Keep the web tab
 
 ## Platforms and source
 
-- **Windows:** `onedrive-foundation` branch. Store packaging/release is a separate step.
-- **Web:** `web-update-21-1` branch. The Pages workflow pins a tested web commit so web updates do not replace the Windows release source.
+- **Windows:** [onedrive-foundation branch](https://github.com/farooqmusicai/FarooqDrive/tree/onedrive-foundation). Store packaging/release is a separate step.
+- **Web:** [web-update-21-1 branch](https://github.com/farooqmusicai/FarooqDrive/tree/web-update-21-1). The Pages workflow pins a tested web commit so web updates do not replace the Windows release source.
 - **Android, iPhone/iPad and macOS apps:** coming soon.
 - `apps/flutter`: current application source. `apps/desktop` and `dist`: earlier editions.
 
