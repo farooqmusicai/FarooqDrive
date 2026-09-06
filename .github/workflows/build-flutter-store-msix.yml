@@ -49,9 +49,9 @@ jobs:
         run: |
           $package = Get-ChildItem -Path apps/flutter/build/windows -Recurse -Filter *.msix | Select-Object -First 1
           if (-not $package) { throw 'MSIX package was not generated.' }
-          Copy-Item $package.FullName FarooqDrive-Microsoft-Store-v21.0.0.0-x64.msix
+          Copy-Item $package.FullName FarooqDrive-Microsoft-Store-v21.1.0.0-x64.msix
       - uses: actions/upload-artifact@v4
         with:
-          name: FarooqDrive-Microsoft-Store-v21
-          path: FarooqDrive-Microsoft-Store-v21.0.0.0-x64.msix
+          name: FarooqDrive-Microsoft-Store-v21.1-test
+          path: FarooqDrive-Microsoft-Store-v21.1.0.0-x64.msix
           if-no-files-found: error

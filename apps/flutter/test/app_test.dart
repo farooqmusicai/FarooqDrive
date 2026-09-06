@@ -24,4 +24,23 @@ void main() {
     expect(find.text('Search all Drives'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('compact Drives menu can be pinned open', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const FarooqDriveApp());
+    await tester.pump();
+    await tester.tap(find.byTooltip('Open Drives menu'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Pin Drives menu open'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Pin Drives menu open'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Unpin Drives menu'), findsOneWidget);
+    expect(find.byTooltip('Open Drives menu'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

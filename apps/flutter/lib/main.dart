@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'drive_controller.dart';
@@ -105,12 +106,37 @@ class FileManagerPage extends StatefulWidget {
 
 class _FileManagerPageState extends State<FileManagerPage> {
   final controller = DriveController();
+  bool _sidebarPinned = false;
 
   @override
   void initState() {
     super.initState();
     controller.addListener(_changed);
+    _loadSidebarPreference();
     controller.initialize();
+  }
+
+  Future<void> _loadSidebarPreference() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _sidebarPinned =
+            preferences.getBool('farooqdrive.sidebarPinned') ?? false;
+      });
+    } catch (_) {
+      // The menu still works for the current session if preferences are unavailable.
+    }
+  }
+
+  Future<void> _setSidebarPinned(bool value) async {
+    if (mounted) setState(() => _sidebarPinned = value);
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setBool('farooqdrive.sidebarPinned', value);
+    } catch (_) {
+      // Keep the current-session pin state even if persistence is unavailable.
+    }
   }
 
   @override
@@ -376,15 +402,20 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 1360;
+    final automaticSidebar = MediaQuery.sizeOf(context).width >= 1360;
+    final showSidebar = automaticSidebar || _sidebarPinned;
     return Scaffold(
-      drawer: compact
+      drawer: !showSidebar
           ? Drawer(
               child: _Sidebar(
                 controller: controller,
                 onAddAccount: _addAccount,
                 onSettings: _settings,
                 onHelp: _showHelp,
+                pinned: false,
+                showPin: true,
+                closeAfterSelection: true,
+                onPinnedChanged: _setSidebarPinned,
               ),
             )
           : null,
@@ -393,7 +424,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
           SafeArea(
             child: Row(
               children: [
-            if (!compact)
+            if (showSidebar)
               SizedBox(
                 width: 270,
                 child: _Sidebar(
@@ -401,6 +432,10 @@ class _FileManagerPageState extends State<FileManagerPage> {
                   onAddAccount: _addAccount,
                   onSettings: _settings,
                   onHelp: _showHelp,
+                  pinned: _sidebarPinned,
+                  showPin: !automaticSidebar,
+                  closeAfterSelection: false,
+                  onPinnedChanged: _setSidebarPinned,
                 ),
               ),
             Expanded(
@@ -408,7 +443,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                 children: [
                   _Header(
                     controller: controller,
-                    showMenu: compact,
+                    showMenu: !showSidebar,
                     onActivity: _showActivityLog,
                   ),
                   if (controller.loading) const LinearProgressIndicator(),
@@ -513,11 +548,24 @@ class _Sidebar extends StatelessWidget {
     required this.onAddAccount,
     required this.onSettings,
     required this.onHelp,
+    required this.pinned,
+    required this.showPin,
+    required this.closeAfterSelection,
+    required this.onPinnedChanged,
   });
   final DriveController controller;
   final VoidCallback onAddAccount;
   final VoidCallback onSettings;
   final VoidCallback onHelp;
+  final bool pinned;
+  final bool showPin;
+  final bool closeAfterSelection;
+  final ValueChanged<bool> onPinnedChanged;
+
+  void _selectDrive(BuildContext context, String? accountId) {
+    controller.selectAccount(accountId);
+    if (closeAfterSelection) Navigator.maybePop(context);
+  }
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -557,7 +605,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 21',
+                          'Version 21.1 Test',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -567,6 +615,23 @@ class _Sidebar extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (showPin)
+                    IconButton(
+                      tooltip: pinned
+                          ? 'Unpin Drives menu'
+                          : 'Pin Drives menu open',
+                      color: const Color(0xff9db5d1),
+                      selectedIcon: const Icon(Icons.push_pin),
+                      isSelected: pinned,
+                      icon: const Icon(Icons.push_pin_outlined),
+                      onPressed: () {
+                        final next = !pinned;
+                        onPinnedChanged(next);
+                        if (next && closeAfterSelection) {
+                          Navigator.maybePop(context);
+                        }
+                      },
+                    ),
                 ],
               ),
               const SizedBox(height: 28),
@@ -577,7 +642,7 @@ class _Sidebar extends StatelessWidget {
                     ? '${_formatBytes(controller.totalStorageUsed)} used'
                     : '${_formatBytes(controller.totalStorageUsed)} / ${_formatCombinedCapacity(controller.accounts)} total',
                 selected: controller.allDrives,
-                onTap: () => controller.selectAccount(null),
+                onTap: () => _selectDrive(context, null),
               ),
               const Padding(
                 padding: EdgeInsets.fromLTRB(12, 24, 12, 10),
@@ -599,7 +664,7 @@ class _Sidebar extends StatelessWidget {
                                 : '${_formatBytes(account.storageUsed)} / ${_formatBytes(account.storageLimit!)}',
                             selected:
                                 controller.selectedAccountId == account.id,
-                            onTap: () => controller.selectAccount(account.id),
+                            onTap: () => _selectDrive(context, account.id),
                             onDisconnect: () async {
                               final confirmed = await showDialog<bool>(
                                     context: context,
@@ -766,6 +831,7 @@ class _Header extends StatelessWidget {
                 if (showMenu)
                   Builder(
                     builder: (context) => IconButton(
+                      tooltip: 'Open Drives menu',
                       onPressed: () => Scaffold.of(context).openDrawer(),
                       icon: const Icon(Icons.menu),
                     ),
