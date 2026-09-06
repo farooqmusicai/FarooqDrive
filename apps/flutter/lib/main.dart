@@ -60,6 +60,9 @@ String _formatCombinedCapacity(Iterable<DriveAccount> accounts) {
   return _formatBytes(total);
 }
 
+bool shouldShowDriveSidebar(double width, {required bool pinned}) =>
+    width >= 1360 || pinned;
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterError.onError = (details) {
@@ -402,8 +405,10 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final automaticSidebar = MediaQuery.sizeOf(context).width >= 1360;
-    final showSidebar = automaticSidebar || _sidebarPinned;
+    final width = MediaQuery.sizeOf(context).width;
+    final automaticSidebar = width >= 1360;
+    final showSidebar =
+        shouldShowDriveSidebar(width, pinned: _sidebarPinned);
     return Scaffold(
       drawer: !showSidebar
           ? Drawer(

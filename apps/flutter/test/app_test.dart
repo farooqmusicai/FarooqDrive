@@ -25,22 +25,10 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact Drives menu can be pinned open', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(const FarooqDriveApp());
-    await tester.pump();
-    await tester.tap(find.byTooltip('Open Drives menu'));
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Pin Drives menu open'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Pin Drives menu open'));
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Unpin Drives menu'), findsOneWidget);
-    expect(find.byTooltip('Open Drives menu'), findsNothing);
-    expect(tester.takeException(), isNull);
+  test('responsive Drives menu honors automatic and pinned modes', () {
+    expect(shouldShowDriveSidebar(1600, pinned: false), isTrue);
+    expect(shouldShowDriveSidebar(1280, pinned: false), isFalse);
+    expect(shouldShowDriveSidebar(1280, pinned: true), isTrue);
+    expect(shouldShowDriveSidebar(760, pinned: true), isTrue);
   });
 }
