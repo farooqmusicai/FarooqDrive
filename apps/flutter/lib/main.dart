@@ -244,7 +244,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
   }
 
   Future<void> _upload() async {
-    final result = await FilePicker.pickFiles(withData: true);
+    final result = await FilePicker.platform.pickFiles(withData: true);
     final file = result?.files.single;
     if (file?.bytes == null) return;
     await controller.upload(file!.name, file.bytes!, null);
