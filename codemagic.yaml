@@ -1,0 +1,30 @@
+workflows:
+  android-private-debug:
+    name: FarooqDrive Android Private Debug
+    max_build_duration: 60
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Create Android runner
+        script: |
+          cd apps/flutter
+          flutter create --platforms=android --org com.farooqdrive --project-name farooqdrive .
+          sed -i 's/com\.farooqdrive\.farooqdrive/com.farooqdrive.app/g' android/app/build.gradle.kts
+          sed -i 's/com\.farooqdrive\.farooqdrive/com.farooqdrive.app/g' android/app/src/main/kotlin/com/farooqdrive/farooqdrive/MainActivity.kt
+          rm -f test/widget_test.dart
+      - name: Restore official app icon source
+        script: |
+          cd apps/flutter
+          base64 --decode assets/FarooqDrive.png.base64 > assets/FarooqDrive.png
+      - name: Install packages
+        script: cd apps/flutter && flutter pub get
+      - name: Analyze
+        script: cd apps/flutter && flutter analyze
+      - name: Test
+        script: cd apps/flutter && flutter test
+      - name: Build private debug APK
+        script: cd apps/flutter && flutter build apk --debug
+    artifacts:
+      - apps/flutter/build/app/outputs/flutter-apk/app-debug.apk
