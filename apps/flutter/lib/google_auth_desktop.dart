@@ -11,12 +11,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'google_drive_api.dart';
 import 'models.dart';
 
-class GoogleAccountAuthorizer {
-  GoogleAccountAuthorizer({GoogleDriveApi? driveApi})
+class DesktopGoogleAccountAuthorizer {
+  DesktopGoogleAccountAuthorizer({GoogleDriveApi? driveApi})
       : _driveApi = driveApi ?? GoogleDriveApi();
 
   static const buildClientId =
       String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID');
+  static const usesPlatformCredentials = false;
   static const clientIdLabel = 'Google Desktop Client ID';
   static const requiresClientSecret = true;
   static const missingClientIdMessage =
