@@ -9,13 +9,19 @@ workflows:
     scripts:
       - name: Create Android runner
         script: |
+          set -e
           cd apps/flutter
           flutter create --platforms=android --org com.farooqdrive --project-name farooqdrive .
-          sed -i 's/com\.farooqdrive\.farooqdrive/com.farooqdrive.app/g' android/app/build.gradle.kts
-          sed -i 's/com\.farooqdrive\.farooqdrive/com.farooqdrive.app/g' android/app/src/main/kotlin/com/farooqdrive/farooqdrive/MainActivity.kt
+          perl -pi -e 's/com\.farooqdrive\.farooqdrive/com.farooqdrive.app/g' android/app/build.gradle.kts
+          perl -pi -e 's/com\.farooqdrive\.farooqdrive/com.farooqdrive.app/g' android/app/src/main/kotlin/com/farooqdrive/farooqdrive/MainActivity.kt
+          mkdir -p android/app/src/main/kotlin/com/farooqdrive/app
+          mv android/app/src/main/kotlin/com/farooqdrive/farooqdrive/MainActivity.kt android/app/src/main/kotlin/com/farooqdrive/app/MainActivity.kt
+          grep -Fq 'applicationId = "com.farooqdrive.app"' android/app/build.gradle.kts
+          grep -Fq 'package com.farooqdrive.app' android/app/src/main/kotlin/com/farooqdrive/app/MainActivity.kt
           rm -f test/widget_test.dart
       - name: Restore official app icon source
         script: |
+          set -e
           cd apps/flutter
           base64 -D -i assets/FarooqDrive.png.base64 -o assets/FarooqDrive.png
       - name: Install packages
@@ -26,5 +32,8 @@ workflows:
         script: cd apps/flutter && flutter test
       - name: Build private debug APK
         script: cd apps/flutter && flutter build apk --debug
+      - name: Show debug signing certificate
+        script: |
+          keytool -list -v -alias androiddebugkey -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android
     artifacts:
       - apps/flutter/build/app/outputs/flutter-apk/app-debug.apk
