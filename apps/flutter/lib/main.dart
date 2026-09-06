@@ -402,8 +402,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
                             _HelpSection(title: '2. Browse everything together', text: 'All Drives combines connected accounts. Select one account for its My Drive. Double-click a folder to open it; use Back, Up or the path bar to return.'),
                             _HelpSection(title: '3. All, Folders and Files', text: 'All shows folders and files together. The other tabs filter the list. Search works across all indexed Drives and every count changes to match the results currently shown.'),
                             _HelpSection(title: '4. Manage files', text: 'Select one or more items, then use Download, Copy, Cut, Paste, Rename or Trash. For Cut or Copy, open the destination Drive or folder before selecting Paste.'),
-                            _HelpSection(title: '5. Storage and activity', text: 'Storage cards show Google-reported capacity and usage. The history icon shows activity recorded on this device for the last 7 days.'),
-                            _HelpSection(title: 'Privacy and safety', text: 'Files transfer directly between this device or browser and Google Drive. FarooqDrive does not operate an intermediate file-storage server.'),
+                            _HelpSection(title: '5. Storage and activity', text: 'Storage cards show provider-reported capacity and usage. The history icon shows activity recorded on this device for the last 7 days.'),
+                            _HelpSection(title: 'Privacy and safety', text: 'Files transfer directly between this device and the selected cloud providers. FarooqDrive does not operate an intermediate file-storage server.'),
                           ],
                         ),
                       ),
@@ -414,6 +414,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _HelpSection(title: '۱۔ اپنی گوگل ڈرائیوز منسلک کریں', text: 'گوگل اکاؤنٹ شامل کریں منتخب کریں اور براؤزر میں گوگل ڈرائیو کی اجازت منظور کریں۔ ہر مطلوبہ اکاؤنٹ کے لیے یہی عمل دہرائیں۔'),
+                              _HelpSection(title: 'ونڈوز Copy اور Move', text: 'OneDrive بھی Add account سے شامل کریں۔ بائیں تیر سے فولڈر کھولیں اور فائل کو مطلوبہ فولڈر پر drag کریں۔ Move پہلے نقل بناتا ہے، پھر مکمل SHA-256 جانچ کے بعد آخری Yes/No پوچھتا ہے۔ No پر دونوں نقول رہتی ہیں۔ صرف غیر تبدیل شدہ OneDrive فائلیں محفوظ شرط کے ساتھ Recycle Bin میں جا سکتی ہیں؛ Google کی اصل فائلیں اور اصل فولڈرز برقرار رہتے ہیں۔'),
+                              _HelpSection(title: 'عارضی جگہ اور حدود', text: 'اس آزمائشی نسخے میں فی فائل 1 GiB، فی کام 10,000 اشیاء اور 64 فولڈر سطحوں کی حد ہے۔ سب سے بڑی فائل کے لیے ہارڈ ڈسک میں خالی جگہ رکھیں۔ FarooqDrive کی عارضی نقل encrypted نہیں ہے۔ کام کے بعد عارضی نقل مٹتی ہے؛ crash پر بچی ہوئی job folders ایپ بند کرکے ہٹائیں۔ دوبارہ شروع ہونے پر خودکار resume موجود نہیں۔ منزل کی تصدیق کے لیے فائل دوبارہ download ہوتی ہے، اس لیے انٹرنیٹ بھی استعمال ہوتا ہے۔ Accounts کی کوئی مقررہ app حد نہیں۔'),
                               _HelpSection(title: '۲۔ تمام مواد ایک ساتھ دیکھیں', text: 'تمام ڈرائیوز منسلک اکاؤنٹس کا مواد یکجا دکھاتا ہے۔ کسی ایک اکاؤنٹ کی مائی ڈرائیو دیکھنے کے لیے اسے منتخب کریں۔ فولڈر کھولنے کے لیے اس پر دو مرتبہ کلک کریں۔'),
                               _HelpSection(title: '۳۔ تمام، فولڈرز اور فائلیں', text: 'تمام والے حصے میں فولڈرز اور فائلیں اکٹھی نظر آتی ہیں۔ دوسرے حصے فہرست کو الگ کرتے ہیں۔ تلاش تمام فہرست شدہ ڈرائیوز میں کام کرتی ہے اور تعداد صرف موجودہ نتائج کے مطابق بدلتی ہے۔'),
                               _HelpSection(title: '۴۔ فائلوں کا انتظام', text: 'ایک یا زیادہ اشیاء منتخب کرکے ڈاؤن لوڈ، نقل، کاٹیں، چسپاں کریں، نام تبدیل کریں یا کوڑے دان میں منتقل کریں۔ کاٹنے یا نقل کرنے کے بعد منزل والا فولڈر کھول کر چسپاں کریں۔'),
@@ -525,6 +527,11 @@ class _FileManagerPageState extends State<FileManagerPage> {
                     onDownload: _download,
                   ),
                   _FileViews(controller: controller),
+                  if (controller.supportsMicrosoft) Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    child: Tooltip(message: TransferSpool.cachePath, child: const Text(
+                      'Cloud transfers use temporary disk space and extra verification downloads. Private limit: 1 GiB/file. See Help for cleanup and limits.',
+                      style: TextStyle(fontSize: 11)))),
                   if (controller.transferResult.isNotEmpty) Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                     child: SelectableText(controller.transferResult, style: const TextStyle(fontSize: 12))),

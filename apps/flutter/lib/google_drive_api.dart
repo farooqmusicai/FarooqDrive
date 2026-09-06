@@ -70,7 +70,7 @@ class GoogleDriveApi extends CloudDriveApi {
     if (uri.scheme != 'https' || uri.host != 'www.googleapis.com' || uri.userInfo.isNotEmpty || uri.port != 443) throw const DriveApiException('Unexpected Google upload URL.');
     var offset = 0;
     do {
-      final end = (offset + 10 * 1024 * 1024).clamp(0, length);
+      final end = (offset + 10 * 1024 * 1024).clamp(0, length).toInt();
       final request = http.Request('PUT', uri)..followRedirects = false
         ..headers.addAll({'Authorization': 'Bearer ${account.accessToken}', 'Content-Type': mimeType,
           'Content-Range': length == 0 ? 'bytes */0' : 'bytes $offset-${end - 1}/$length'})

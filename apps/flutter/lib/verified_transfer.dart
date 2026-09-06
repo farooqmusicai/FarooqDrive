@@ -23,7 +23,7 @@ class VerifiedTransfer {
   final List<VerifiedCopy> copies = [];
   final Set<String> _seen = {};
 
-  Future<_Plan> plan(DriveAccount account, DriveItem item, int depth) async {
+  Future<_Plan> _plan(DriveAccount account, DriveItem item, int depth) async {
     checkCancelled();
     if (depth > 64 || _seen.length >= 10000 || !_seen.add('${account.id}:${item.id}')) {
       throw const DriveApiException('Overlapping selection, cycle or batch limit reached (10,000 items / 64 levels). Select a smaller non-overlapping batch.');
@@ -34,7 +34,7 @@ class VerifiedTransfer {
     final children = <_Plan>[];
     if (current.isFolder) {
       for (final child in await provider(account).listFolder(account, current.id)) {
-        children.add(await plan(account, child, depth + 1));
+        children.add(await _plan(account, child, depth + 1));
       }
     }
     return _Plan(account, snapshot, children);
@@ -43,7 +43,7 @@ class VerifiedTransfer {
   Future<void> run(List<(DriveAccount, DriveItem)> items, DriveAccount destination, String parent) async {
     final plans = <_Plan>[];
     progress('Checking source files and folders…');
-    for (final entry in items) { plans.add(await plan(entry.$1, entry.$2, 0)); }
+    for (final entry in items) { plans.add(await _plan(entry.$1, entry.$2, 0)); }
     if (_seen.contains('${destination.id}:$parent')) throw const DriveApiException('Cannot paste into the source folder or its descendants.');
     for (final entry in plans) { await _copy(entry, destination, parent); }
   }

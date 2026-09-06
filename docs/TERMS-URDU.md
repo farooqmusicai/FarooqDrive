@@ -33,4 +33,13 @@ code میں developer credentials، صارف کے ٹوکن، دستخطی سرٹ
 
 ای میل: support@mymandoob.com  
 ویب سائٹ: https://www.mymandoob.com/farooqdrive/
+# Windows آزمائشی transfer ضمیمہ — 6 ستمبر 2026
+
+OneDrive والے Windows آزمائشی نسخے میں عارضی فائلیں صارف کی ہارڈ ڈسک پر بنتی
+ہیں اور FarooqDrive انہیں encrypt نہیں کرتی۔ کافی خالی جگہ رکھیں۔ crash کے
+بعد باقی job folders ایپ بند کرکے ہٹائیں۔ منزل کی SHA-256 جانچ کے لیے مکمل
+فائل دوبارہ download ہوتی ہے۔ فی فائل 1 GiB کی آزمائشی حد، آخری Yes/No، Google
+کی اصل فائلیں برقرار رکھنے اور خودکار resume نہ ہونے کی تفصیل
+[transfer guide](WINDOWS-VERIFIED-TRANSFERS.md) میں ہے۔ Provider کی اپنی حدود،
+اجازتیں اور retention قواعد بھی لاگو ہوتے ہیں۔
 

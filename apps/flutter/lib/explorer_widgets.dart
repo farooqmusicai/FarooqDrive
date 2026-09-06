@@ -79,7 +79,7 @@ class _DriveTreeState extends State<DriveTree> {
 }
 
 class _TreeChildren extends StatefulWidget {
-  const _TreeChildren({required this.controller, required this.account, required this.path});
+  const _TreeChildren({super.key, required this.controller, required this.account, required this.path});
   final DriveController controller;
   final DriveAccount account;
   final List<FolderCrumb> path;
@@ -132,7 +132,7 @@ class _TreeChildrenState extends State<_TreeChildren> {
             else if (item.webViewLink != null) { await launchUrl(Uri.parse(item.webViewLink!)); }
           },
           child: Padding(padding: const EdgeInsets.symmetric(vertical: 7), child: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white70, fontSize: 12))))),
+            style: const TextStyle(color: Colors.white70, fontSize: 12)))))),
       ]));
     final drag = CloudDragSource(controller: widget.controller, item: item, child: row);
     return item.isFolder ? CloudDropTarget(controller: widget.controller, accountId: widget.account.id, path: path, child: drag) : drag;

@@ -1,5 +1,19 @@
 # FarooqDrive terms of use
 
+## Private Windows transfer candidate addendum — 6 September 2026
+
+For the `onedrive-foundation` private Windows candidate, Google Drive and OneDrive
+transfers use local temporary disk storage and the user's network connection.
+Temporary file contents are not encrypted by FarooqDrive. Users must maintain
+enough free space; crashes can leave temporary files requiring manual cleanup
+with the app closed. Verification downloads destination contents again.
+The candidate limits and cleanup behavior in
+[Windows verified transfers](WINDOWS-VERIFIED-TRANSFERS.md) apply, including the
+1 GiB per-file guard, retained Google originals and original folder containers,
+final Yes/No for eligible OneDrive source cleanup, and no automatic restart/resume.
+Provider quotas, permissions, retention and terms apply separately. The following
+existing-release terms describe the published Google-only editions.
+
 Urdu version: [TERMS-URDU.md](TERMS-URDU.md)
 
 Last updated: 5 September 2026

@@ -156,13 +156,13 @@ void main() {
         id: 'file', name: 'File', mimeType: 'application/octet-stream', isFolder: false,
         accountId: 'm', accountEmail: 'm@example.invalid', size: 3)]);
       var prompts = 0;
-      if (scenario != 'dismissed') controller.confirmSourceCleanup = (files, retained) async {
+      if (scenario != 'dismissed') { controller.confirmSourceCleanup = (files, retained) async {
         prompts++;
         expect(source.trashes, 0);
         expect(target.downloads, 1);
         if (scenario == 'changed') source.changed = true;
         return scenario != 'no';
-      };
+      }; }
       await controller.paste();
       expect(source.trashes, scenario == 'yes' ? 1 : 0);
       expect(prompts, ['corrupt','dismissed'].contains(scenario) ? 0 : 1);

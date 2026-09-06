@@ -1,6 +1,6 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
-Status: Milestone 3 read-only Windows implementation passed Analyze, Tests, Windows compilation and installer/portable packaging. Owner Microsoft login testing is the next gate.
+Status: Owner confirmed the read-only candidate runs with three Google and two OneDrive accounts. The next private candidate implements disk-backed verified transfers, conditional OneDrive source cleanup, an expandable tree and internal drag/drop. Windows CI and owner transfer acceptance remain gates. See [current scope and limitations](WINDOWS-VERIFIED-TRANSFERS.md).
 
 ## Verified private Windows candidate
 - Exact code commit: bcb352194c61873b97c8f84e5f420738d46e898a

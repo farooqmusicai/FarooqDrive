@@ -234,7 +234,7 @@ class OneDriveApi extends CloudDriveApi {
     if (uri.scheme != 'https' || uri.userInfo.isNotEmpty || uri.port != 443) throw const DriveApiException('Unexpected upload session URL.');
     var offset = 0;
     while (offset < length) {
-      final end = (offset + 10 * 1024 * 1024).clamp(0, length);
+      final end = (offset + 10 * 1024 * 1024).clamp(0, length).toInt();
       // Upload session is pre-authorized. Never forward the Graph token.
       final request = http.Request('PUT', uri)..followRedirects = false
         ..headers['Content-Range'] = 'bytes $offset-${end - 1}/$length'

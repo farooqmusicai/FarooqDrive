@@ -1,5 +1,13 @@
 # Privacy
 
+Private Windows OneDrive candidate: Microsoft refresh tokens are saved in secure
+device storage. Cloud transfers also create unencrypted temporary file contents
+under the Windows temporary directory, scoped to individual transfer jobs. Normal
+completion/failure removes that job's files; crashes may leave them. Close the app
+before manually clearing leftover job folders. File contents travel directly to
+and from the selected Google/Microsoft services, including a destination download
+for verification. See [transfer storage and limits](WINDOWS-VERIFIED-TRANSFERS.md).
+
 Urdu version: [PRIVACY-URDU.md](PRIVACY-URDU.md)
 
 FarooqDrive does not operate an intermediate file-storage service. Files are

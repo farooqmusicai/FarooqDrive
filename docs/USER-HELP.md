@@ -1,5 +1,10 @@
 # FarooqDrive user help
 
+For the private Windows OneDrive candidate, use the
+[Explorer and verified transfer guide](WINDOWS-VERIFIED-TRANSFERS.md), including
+the final source-cleanup confirmation and temporary storage disclosure. The
+sections below describe the existing published editions.
+
 Urdu version: [USER-HELP-URDU.md](USER-HELP-URDU.md)
 
 The same workflow applies to the Web and Windows editions.
