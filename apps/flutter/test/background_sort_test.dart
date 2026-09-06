@@ -40,6 +40,7 @@ void main() {
     expect(c.viewMode,FileViewMode.exactDuplicates);
     expect(c.loading, isFalse);
     await c.selectAccount('g');
+    await c.refresh(); // A read-only refresh must not invalidate the active scan.
     await c.setViewMode(FileViewMode.files);
     api.done.complete([item('1','A',3,'a@x',2020),item('2','A',3,'a@x',2020),item('3','A',4,'a@x',2020)]);
     await scan;

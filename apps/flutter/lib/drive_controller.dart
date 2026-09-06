@@ -413,7 +413,13 @@ class DriveController extends ChangeNotifier {
 
   Future<void> refresh() => _guard(() async {
         await _refreshQuotas();
-        _invalidateIndex();
+        // Refresh is a read, not a mutation: do not cancel an active scan.
+        treeRevision++;
+        if (indexReady) {
+          indexStale = true;
+          if (!indexing) scanStatus = 'Saved scan results retained — press Rescan to update.';
+          _saveIndex();
+        }
         await _loadFiles();
       });
 
