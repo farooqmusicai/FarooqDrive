@@ -1,6 +1,17 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
-Status: Milestone 0 started on 6 September 2026. OneDrive runtime code is not implemented.
+Status: Milestone 0 baseline passed; Milestone 1 provider foundation authored, awaiting CI. OneDrive authentication and file operations are not implemented.
+
+## Milestone 1 checkpoint
+- Added CloudDriveApi and shared exception/transfer types; GoogleDriveApi implements it and re-exports old type names for existing imports.
+- Added provider metadata with Google defaults and preserved it through account updates; made item folder identity explicit.
+- Added regression tests for legacy Google identity, Microsoft metadata, non-Google folders, and Google pagination through the shared API.
+- Enabled only the existing Windows workflow on onedrive-foundation pushes for analyze/test/build feedback. Store and Web publishing workflows are unchanged.
+- No new dependencies, Microsoft client ID literals, login behavior changes or transfer-cleanup behavior changes in this milestone.
+- User supplied the Microsoft client ID in conversation; keep it in protected build configuration, not this source document.
+- Screenshots confirm delegated Files.ReadWrite and User.Read, Mobile and desktop http://localhost, and Any Entra ID Tenant + Personal Microsoft accounts.
+- Allow public client flows remains Disabled for the selected authorization-code flow with a registered native redirect. Live login has not been tested.
+- Temporary cache, source verification and final Yes/No cleanup remain implementation requirements, NOT delivered capabilities.
 
 ## Baseline
 - Feature branch: onedrive-foundation
@@ -8,8 +19,8 @@ Status: Milestone 0 started on 6 September 2026. OneDrive runtime code is not im
 - main and android-foundation were inspected and left unchanged.
 - Existing Windows CI run 34028169234 at that exact commit succeeded, including Analyze, Test, Build Windows, portable packaging and installer.
 - These are historical results inspected today, NOT a newly executed baseline run.
-- Flutter/Dart are not available in the current local runtime. A fresh feature-branch CI baseline is still pending.
-- Existing Windows workflow supports manual dispatch but automatically runs only for main pushes.
+- Fresh feature-branch baseline run 34043545974 at a330c0bfb352836adc3602518c21b4ead5aeef55 passed Analyze, Test, Build Windows and packaging. Job 101514470222 was checked through GitHub.
+- Flutter/Dart are not available in the current local runtime. New changes must pass feature-branch CI before the next implementation milestone.
 - Do not publish, merge into main, change release versions, or submit to Partner Center without owner approval.
 - Android remains separate at 1d0f708aa62f7d2f3aaf35bd8ca34810a0a8ea54. iOS follows Android later.
 
@@ -70,4 +81,4 @@ When authentication is ready, guide owner one screen at a time:
 - If portal access requires tenant/account setup or billing, stop and ask owner; do not create paid resources.
 - Partner Center app registration does not establish that Entra tenant access is configured.
 
-Next action: obtain a fresh feature-branch Windows CI baseline, then implement provider-neutral foundation.
+Next action: verify Milestone 1 CI, then implement provider routing and lazy indexing before Microsoft OAuth.

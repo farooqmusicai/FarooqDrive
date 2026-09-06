@@ -3,26 +3,21 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import 'cloud_drive_api.dart';
 import 'models.dart';
 
-class DriveApiException implements Exception {
-  const DriveApiException(this.message, {this.statusCode});
-  final String message;
-  final int? statusCode;
-  @override
-  String toString() => message;
-}
+export 'cloud_drive_api.dart' show DriveApiException, TransferFile;
 
-class TransferFile {
-  const TransferFile(this.name, this.mimeType, this.bytes);
-  final String name;
-  final String mimeType;
-  final Uint8List bytes;
-}
-
-class GoogleDriveApi {
+class GoogleDriveApi implements CloudDriveApi {
   GoogleDriveApi({http.Client? client}) : _client = client ?? http.Client();
   final http.Client _client;
+
+  @override
+  CloudProviderType get providerType => CloudProviderType.google;
+  @override
+  String get rootFolderId => 'root';
+  @override
+  String get rootFolderLabel => 'My Drive';
 
   static const _api = 'https://www.googleapis.com/drive/v3';
   static const _upload = 'https://www.googleapis.com/upload/drive/v3';
@@ -53,6 +48,7 @@ class GoogleDriveApi {
     return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
   }
 
+  @override
   Future<List<DriveItem>> listFolder(
     DriveAccount account,
     String folderId,
@@ -78,6 +74,7 @@ class GoogleDriveApi {
     return items;
   }
 
+  @override
   Future<List<DriveItem>> listAllFiles(DriveAccount account) async {
     final items = <DriveItem>[];
     String? pageToken;
@@ -100,6 +97,7 @@ class GoogleDriveApi {
     return items;
   }
 
+  @override
   Future<DriveAccount> refreshQuota(DriveAccount account) async {
     final uri = Uri.parse('$_api/about').replace(
       queryParameters: const {
@@ -114,6 +112,7 @@ class GoogleDriveApi {
     );
   }
 
+  @override
   Future<String> createFolder(
     DriveAccount account,
     String parentId,
@@ -133,6 +132,7 @@ class GoogleDriveApi {
     return data['id'] as String;
   }
 
+  @override
   Future<void> rename(DriveAccount account, String id, String name) async {
     await _json(
       account,
@@ -143,6 +143,7 @@ class GoogleDriveApi {
     );
   }
 
+  @override
   Future<void> setTrashed(
     DriveAccount account,
     String id,
@@ -157,6 +158,7 @@ class GoogleDriveApi {
     );
   }
 
+  @override
   Future<String> copy(
     DriveAccount account,
     DriveItem item,
@@ -175,6 +177,7 @@ class GoogleDriveApi {
     return data['id'] as String;
   }
 
+  @override
   Future<void> move(
     DriveAccount account,
     DriveItem item,
@@ -190,6 +193,7 @@ class GoogleDriveApi {
     await _json(account, uri.toString(), method: 'PATCH');
   }
 
+  @override
   Future<String> uploadBytes(
     DriveAccount account, {
     required String parentId,
@@ -222,6 +226,7 @@ class GoogleDriveApi {
     return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
   }
 
+  @override
   Future<bool> verifyUploadedFile(
     DriveAccount account,
     String fileId,
@@ -236,6 +241,7 @@ class GoogleDriveApi {
         int.tryParse('${data['size'] ?? ''}') == expectedSize;
   }
 
+  @override
   Future<Uint8List> downloadBytes(DriveAccount account, DriveItem item) async {
     final response = await _client.get(
       Uri.parse('$_api/files/${Uri.encodeComponent(item.id)}?alt=media'),
@@ -248,6 +254,7 @@ class GoogleDriveApi {
     return response.bodyBytes;
   }
 
+  @override
   Future<TransferFile> downloadForTransfer(
     DriveAccount account,
     DriveItem item,

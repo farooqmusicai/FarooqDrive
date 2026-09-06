@@ -1,11 +1,15 @@
 const googleFolderMime = 'application/vnd.google-apps.folder';
 
+enum CloudProviderType { google, onedrive }
+
 class DriveAccount {
   DriveAccount({
     required this.id,
     required this.email,
     required this.name,
     required this.accessToken,
+    this.provider = CloudProviderType.google,
+    this.providerDriveId,
     this.photoUrl,
     this.refreshToken,
     this.tokenExpiry,
@@ -19,6 +23,9 @@ class DriveAccount {
   final String email;
   final String name;
   final String accessToken;
+  // Existing Google authorizers and saved sessions default to Google.
+  final CloudProviderType provider;
+  final String? providerDriveId;
   final String? photoUrl;
   final String? refreshToken;
   final DateTime? tokenExpiry;
@@ -40,6 +47,8 @@ class DriveAccount {
         email: email,
         name: name,
         accessToken: accessToken ?? this.accessToken,
+        provider: provider,
+        providerDriveId: providerDriveId,
         photoUrl: photoUrl,
         refreshToken: refreshToken ?? this.refreshToken,
         tokenExpiry: tokenExpiry ?? this.tokenExpiry,
@@ -55,6 +64,7 @@ class DriveItem {
     required this.id,
     required this.name,
     required this.mimeType,
+    required this.isFolder,
     required this.accountId,
     required this.accountEmail,
     this.size,
@@ -79,12 +89,13 @@ class DriveItem {
   final bool ownedByMe;
   final String location;
 
-  bool get isFolder => mimeType == googleFolderMime;
+  final bool isFolder;
 
   DriveItem copyWithLocation(String value) => DriveItem(
         id: id,
         name: name,
         mimeType: mimeType,
+        isFolder: isFolder,
         accountId: accountId,
         accountEmail: accountEmail,
         size: size,
@@ -104,6 +115,7 @@ class DriveItem {
         id: json['id'] as String,
         name: json['name'] as String? ?? 'Untitled',
         mimeType: json['mimeType'] as String? ?? 'application/octet-stream',
+        isFolder: json['mimeType'] == googleFolderMime,
         accountId: account.id,
         accountEmail: account.email,
         size: int.tryParse('${json['size'] ?? ''}'),
