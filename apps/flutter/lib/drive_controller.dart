@@ -54,7 +54,8 @@ class DriveController extends ChangeNotifier {
             ids.contains(item.accountId) && !item.isFolder && item.ownedByMe)
         .fold(0, (total, item) => total + (item.size ?? 0));
   }
-  bool get hasClientId => webClientId.endsWith('.apps.googleusercontent.com');
+  bool get hasClientId => GoogleAccountAuthorizer.usesPlatformCredentials ||
+      webClientId.endsWith('.apps.googleusercontent.com');
   bool get hasRequiredCredentials => hasClientId &&
       (!GoogleAccountAuthorizer.requiresClientSecret ||
           desktopClientSecret.trim().isNotEmpty);
