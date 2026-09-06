@@ -1,11 +1,13 @@
 workflows:
-  android-private-debug:
-    name: FarooqDrive Android Private Debug
+  android-private-release:
+    name: FarooqDrive Android Private Release
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       flutter: stable
       java: 17
+      android_signing:
+        - farooqdrive_android
     scripts:
       - name: Create Android runner
         script: |
@@ -24,16 +26,52 @@ workflows:
           set -e
           cd apps/flutter
           base64 -D -i assets/FarooqDrive.png.base64 -o assets/FarooqDrive.png
+      - name: Configure permanent Android signing
+        script: |
+          set -e
+          : "${CM_KEYSTORE_PATH:?Permanent Android keystore is not available}"
+          : "${CM_KEYSTORE_PASSWORD:?Keystore password is not available}"
+          : "${CM_KEY_ALIAS:?Key alias is not available}"
+          : "${CM_KEY_PASSWORD:?Key password is not available}"
+          cd apps/flutter
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/build.gradle.kts")
+          text = path.read_text()
+          marker = "    buildTypes {\n"
+          signing = """    signingConfigs {
+              create("release") {
+                  storeFile = file(System.getenv("CM_KEYSTORE_PATH"))
+                  storePassword = System.getenv("CM_KEYSTORE_PASSWORD")
+                  keyAlias = System.getenv("CM_KEY_ALIAS")
+                  keyPassword = System.getenv("CM_KEY_PASSWORD")
+              }
+          }
+
+          """
+          if marker not in text:
+              raise SystemExit("Could not find Android buildTypes block")
+          text = text.replace(marker, signing + marker, 1)
+          debug_line = 'signingConfig = signingConfigs.getByName("debug")'
+          release_line = 'signingConfig = signingConfigs.getByName("release")'
+          if debug_line not in text:
+              raise SystemExit("Could not find Flutter debug signing fallback")
+          text = text.replace(debug_line, release_line, 1)
+          path.write_text(text)
+          PY
+          grep -Fq 'create("release")' android/app/build.gradle.kts
+          grep -Fq 'signingConfig = signingConfigs.getByName("release")' android/app/build.gradle.kts
       - name: Install packages
         script: cd apps/flutter && flutter pub get
       - name: Analyze
         script: cd apps/flutter && flutter analyze
       - name: Test
         script: cd apps/flutter && flutter test
-      - name: Build private debug APK
-        script: cd apps/flutter && flutter build apk --debug
-      - name: Show debug signing certificate
+      - name: Build signed private release APK
+        script: cd apps/flutter && flutter build apk --release
+      - name: Show permanent signing certificate
         script: |
-          keytool -list -v -alias androiddebugkey -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android
+          keytool -list -v -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" -keypass "$CM_KEY_PASSWORD"
     artifacts:
-      - apps/flutter/build/app/outputs/flutter-apk/app-debug.apk
+      - apps/flutter/build/app/outputs/flutter-apk/app-release.apk
