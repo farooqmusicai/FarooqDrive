@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:farooqdrive/drive_controller.dart';
 import 'package:farooqdrive/google_drive_api.dart';
+import 'package:farooqdrive/cloud_drive_api.dart';
 import 'package:farooqdrive/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +15,28 @@ class RecordingApi extends GoogleDriveApi {
   int uploads = 0;
   int verifications = 0;
   int trashes = 0;
+  bool corrupt = false;
+  bool changed = false;
   final List<DriveItem> items = [];
+  @override
+  Future<TransferSnapshot> snapshot(DriveAccount account, String id) async => TransferSnapshot(
+    DriveItem(id: id, name: 'File', mimeType: 'application/octet-stream', isFolder: false,
+      accountId: account.id, accountEmail: account.email, size: 3, parents: const ['root']),
+    changed ? 'v2' : 'v1', trashTag: type == CloudProviderType.onedrive ? 'v1' : null);
+  @override
+  Future<TransferDownload> openTransfer(DriveAccount account, DriveItem item) async {
+    downloads++;
+    return TransferDownload(item.name, item.mimeType, Stream.value(corrupt ? [3, 2, 1] : [1, 2, 3]), 3);
+  }
+  @override
+  Future<String> uploadTransfer(DriveAccount account, String parentId, String name,
+      String mimeType, int length, Future<Uint8List> Function(int, int) readRange) async {
+    expect(await readRange(0, length), [1, 2, 3]);
+    uploads++;
+    return 'uploaded';
+  }
+  @override
+  Future<void> trashUnchanged(DriveAccount account, TransferSnapshot source) async { trashes++; }
   @override
   CloudProviderType get providerType => type;
   @override
@@ -108,16 +130,43 @@ void main() {
     expect(google.downloads, 1);
     expect(google.uploads, 0);
     expect(google.verifications, 0);
-    expect(microsoft.downloads, 0);
+    expect(microsoft.downloads, 1);
     expect(microsoft.uploads, 1);
-    expect(microsoft.verifications, 1);
+    expect(microsoft.verifications, 0);
     expect(google.trashes + microsoft.trashes, 0);
     expect(google.scans + microsoft.scans, 0);
     controller.clipboard = DriveClipboard(ClipboardMode.move, controller.clipboard!.items);
     await controller.paste();
-    expect(controller.error, contains('temporarily disabled'));
-    expect(google.downloads, 1);
-    expect(microsoft.uploads, 1);
+    expect(controller.error, isNull);
+    expect(controller.transferResult, contains('conditional cleanup is unavailable'));
+    expect(google.downloads, 2);
+    expect(microsoft.uploads, 2);
     expect(google.trashes + microsoft.trashes, 0);
   });
+
+  for (final scenario in ['yes', 'no', 'changed', 'corrupt', 'dismissed']) {
+    test('safe move: $scenario', () async {
+      final source = RecordingApi(CloudProviderType.onedrive);
+      final target = RecordingApi(CloudProviderType.google)..corrupt = scenario == 'corrupt';
+      final controller = DriveController(api: target, providers: {CloudProviderType.onedrive: source});
+      addTearDown(controller.dispose);
+      controller.accounts.addAll([account('m', CloudProviderType.onedrive), account('g', CloudProviderType.google)]);
+      controller.selectedAccountId = 'g';
+      controller.clipboard = const DriveClipboard(ClipboardMode.move, [DriveItem(
+        id: 'file', name: 'File', mimeType: 'application/octet-stream', isFolder: false,
+        accountId: 'm', accountEmail: 'm@example.invalid', size: 3)]);
+      var prompts = 0;
+      if (scenario != 'dismissed') controller.confirmSourceCleanup = (files, retained) async {
+        prompts++;
+        expect(source.trashes, 0);
+        expect(target.downloads, 1);
+        if (scenario == 'changed') source.changed = true;
+        return scenario != 'no';
+      };
+      await controller.paste();
+      expect(source.trashes, scenario == 'yes' ? 1 : 0);
+      expect(prompts, ['corrupt','dismissed'].contains(scenario) ? 0 : 1);
+      expect(controller.error, ['changed','corrupt'].contains(scenario) ? isNotNull : isNull);
+    });
+  }
 }

@@ -9,9 +9,8 @@ import 'models.dart';
 
 typedef MicrosoftTokenResolver = Future<String> Function(DriveAccount account, {bool force});
 
-/// Private read-only milestone. Mutations remain blocked until verified
-/// transfers and final source-cleanup confirmation are implemented.
-class OneDriveApi implements CloudDriveApi {
+/// Native drive operations. Transfer cleanup uses an explicit ETag precondition.
+class OneDriveApi extends CloudDriveApi {
   OneDriveApi({required MicrosoftTokenResolver tokenResolver, http.Client? client})
       : _tokenResolver = tokenResolver, _client = client ?? http.Client();
   final MicrosoftTokenResolver _tokenResolver;
@@ -176,22 +175,102 @@ class OneDriveApi implements CloudDriveApi {
     throw const DriveApiException('Too many OneDrive download redirects.');
   }
 
-  Never _readOnly() => throw const DriveApiException('OneDrive is read-only in this private test. Upload, Copy, Move and Trash will follow after safety verification.');
+  Future<Map<String, dynamic>> _write(DriveAccount account, String method,
+      String path, {Map<String, dynamic>? body, String? tag}) async {
+    final request = http.Request(method, Uri.parse('$_base/me/drive/$path'))
+      ..followRedirects = false
+      ..headers.addAll({'Authorization': 'Bearer ${await _tokenResolver(account, force: false)}',
+        'Content-Type': 'application/json', if (tag != null) 'If-Match': tag});
+    if (body != null) request.body = jsonEncode(body);
+    final response = await http.Response.fromStream(await _client.send(request).timeout(const Duration(seconds: 60)));
+    if (response.statusCode < 200 || response.statusCode >= 300) throw DriveApiException('OneDrive operation failed (${response.statusCode}). Source cleanup stops on any failure.', statusCode: response.statusCode);
+    if (response.bodyBytes.isEmpty) return {};
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   @override
-  Future<String> createFolder(DriveAccount account, String parentId, String name) async => _readOnly();
+  Future<TransferSnapshot> snapshot(DriveAccount account, String id) async {
+    final data = await _json(account, Uri.parse('$_base/me/drive/${_item(id)}'));
+    final tag = data['eTag'] as String?;
+    if (tag == null || data['deleted'] != null) throw const DriveApiException('OneDrive item version unavailable. Source retained.');
+    final item = parseItem(data, account);
+    return TransferSnapshot(item, tag, trashTag: !item.isFolder && item.canDownload && item.ownedByMe ? tag : null);
+  }
+
   @override
-  Future<void> rename(DriveAccount account, String id, String name) async => _readOnly();
+  Future<void> trashUnchanged(DriveAccount account, TransferSnapshot source) async {
+    if (source.trashTag == null || source.item.isFolder) throw const DriveApiException('Conditional cleanup unavailable. Source retained.');
+    await _write(account, 'DELETE', _item(source.item.id), tag: source.trashTag);
+  }
+
   @override
-  Future<void> setTrashed(DriveAccount account, String id, bool trashed) async => _readOnly();
+  Future<TransferDownload> openTransfer(DriveAccount account, DriveItem item) async {
+    if (item.isFolder || !item.canDownload) throw const DriveApiException('This OneDrive item cannot be downloaded.');
+    final metadata = await _get(account, Uri.parse('$_base/me/drive/${_item(item.id)}/content'));
+    final location = metadata.headers['location'];
+    if (metadata.statusCode != 302 || location == null) throw const DriveApiException('OneDrive download link unavailable.');
+    var uri = Uri.parse(location);
+    for (var count = 0; count < 5; count++) {
+      if (uri.scheme != 'https' || uri.userInfo.isNotEmpty || uri.port != 443) throw const DriveApiException('Invalid OneDrive download URL.');
+      final request = http.Request('GET', uri)..followRedirects = false;
+      final response = await _client.send(request).timeout(const Duration(seconds: 60));
+      if (response.statusCode == 200) return TransferDownload(item.name, item.mimeType, response.stream, item.size);
+      await response.stream.drain<void>();
+      final next = response.headers['location'];
+      if (![301,302,303,307,308].contains(response.statusCode) || next == null) break;
+      uri = uri.resolve(next);
+    }
+    throw const DriveApiException('OneDrive download failed.');
+  }
+
   @override
-  Future<String> copy(DriveAccount account, DriveItem item, String parentId) async => _readOnly();
+  Future<String> uploadTransfer(DriveAccount account, String parentId,
+      String name, String mimeType, int length,
+      Future<Uint8List> Function(int, int) readRange) async {
+    if (length == 0) throw const DriveApiException('Zero-byte OneDrive uploads are not supported in this candidate. Source retained.');
+    final data = await _write(account, 'POST', '${_item(parentId)}:/${Uri.encodeComponent(name)}:/createUploadSession',
+      body: {'item': {'name': name, '@microsoft.graph.conflictBehavior': 'rename'}});
+    final uri = Uri.parse(data['uploadUrl'] as String);
+    if (uri.scheme != 'https' || uri.userInfo.isNotEmpty || uri.port != 443) throw const DriveApiException('Unexpected upload session URL.');
+    var offset = 0;
+    while (offset < length) {
+      final end = (offset + 10 * 1024 * 1024).clamp(0, length);
+      // Upload session is pre-authorized. Never forward the Graph token.
+      final request = http.Request('PUT', uri)..followRedirects = false
+        ..headers['Content-Range'] = 'bytes $offset-${end - 1}/$length'
+        ..bodyBytes = await readRange(offset, end);
+      final response = await http.Response.fromStream(await _client.send(request).timeout(const Duration(seconds: 60)));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (end != length) throw const DriveApiException('OneDrive completed an upload early.');
+        return (jsonDecode(response.body) as Map)['id'] as String;
+      }
+      if (response.statusCode != 202 || end == length) throw const DriveApiException('OneDrive upload interrupted. Source retained; retry creates a new copy.');
+      final next = (jsonDecode(response.body) as Map)['nextExpectedRanges'] as List?;
+      if (next == null || next.length != 1 || next.single != '$end-') throw const DriveApiException('Unexpected OneDrive upload offset.');
+      offset = end;
+    }
+    throw const DriveApiException('OneDrive upload was not completed.');
+  }
   @override
-  Future<void> move(DriveAccount account, DriveItem item, String parentId) async => _readOnly();
+  Future<String> createFolder(DriveAccount account, String parentId, String name) async =>
+      (await _write(account, 'POST', '${_item(parentId)}/children', body: {'name': name, 'folder': <String, dynamic>{}, '@microsoft.graph.conflictBehavior': 'rename'}))['id'] as String;
+  @override
+  Future<void> rename(DriveAccount account, String id, String name) async { await _write(account, 'PATCH', _item(id), body: {'name': name}); }
+  @override
+  Future<void> setTrashed(DriveAccount account, String id, bool trashed) async {
+    if (!trashed) throw const DriveApiException('Restore from the OneDrive recycle bin on the website.');
+    await _write(account, 'DELETE', _item(id));
+  }
+  @override
+  Future<String> copy(DriveAccount account, DriveItem item, String parentId) async => throw const DriveApiException('Use the verified transfer queue.');
+  @override
+  Future<void> move(DriveAccount account, DriveItem item, String parentId) async => throw const DriveApiException('Use Copy, verify, then confirm source cleanup.');
   @override
   Future<String> uploadBytes(DriveAccount account, {required String parentId, required String name,
-    required Uint8List bytes, String mimeType = 'application/octet-stream'}) async => _readOnly();
+    required Uint8List bytes, String mimeType = 'application/octet-stream'}) async =>
+      uploadTransfer(account, parentId, name, mimeType, bytes.length, (start, end) async => Uint8List.sublistView(bytes, start, end));
   @override
-  Future<bool> verifyUploadedFile(DriveAccount account, String fileId, int expectedSize) async => _readOnly();
+  Future<bool> verifyUploadedFile(DriveAccount account, String fileId, int expectedSize) async => (await snapshot(account, fileId)).item.size == expectedSize;
   @override
-  Future<TransferFile> downloadForTransfer(DriveAccount account, DriveItem item) async => _readOnly();
+  Future<TransferFile> downloadForTransfer(DriveAccount account, DriveItem item) async => TransferFile(item.name, item.mimeType, await downloadBytes(account, item));
 }

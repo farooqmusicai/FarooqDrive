@@ -22,6 +22,16 @@ class TransferFile {
 /// Provider boundary. Source-cleanup confirmation belongs to the controller's
 /// transfer state machine, not to these low-level provider operations.
 abstract class CloudDriveApi {
+  Future<TransferSnapshot> snapshot(DriveAccount account, String id) async =>
+      throw const DriveApiException('Verified transfers are unavailable for this provider.');
+  Future<TransferDownload> openTransfer(DriveAccount account, DriveItem item) async =>
+      throw const DriveApiException('Streaming download is unavailable.');
+  Future<String> uploadTransfer(DriveAccount account, String parentId,
+      String name, String mimeType, int length,
+      Future<Uint8List> Function(int start, int end) readRange) async =>
+      throw const DriveApiException('Streaming upload is unavailable.');
+  Future<void> trashUnchanged(DriveAccount account, TransferSnapshot source) async =>
+      throw const DriveApiException('Conditional Trash is unavailable. Source retained.');
   CloudProviderType get providerType;
   String get rootFolderId;
   String get rootFolderLabel;
@@ -54,4 +64,19 @@ abstract class CloudDriveApi {
   Future<TransferFile> downloadForTransfer(
     DriveAccount account, DriveItem item,
   );
+}
+
+class TransferSnapshot {
+  const TransferSnapshot(this.item, this.revision, {this.trashTag});
+  final DriveItem item;
+  final String revision;
+  final String? trashTag;
+}
+
+class TransferDownload {
+  const TransferDownload(this.name, this.mimeType, this.stream, this.length);
+  final String name;
+  final String mimeType;
+  final Stream<List<int>> stream;
+  final int? length;
 }

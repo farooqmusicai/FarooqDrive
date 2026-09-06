@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:farooqdrive/cloud_drive_api.dart';
 import 'package:farooqdrive/models.dart';
@@ -64,5 +65,37 @@ void main() {
     expect(await api.downloadBytes(account, item), [1, 2, 3]);
     await expectLater(api.setTrashed(account, 'f', true), throwsA(isA<DriveApiException>()));
     await expectLater(api.move(account, item, 'root'), throwsA(isA<DriveApiException>()));
+  });
+
+  test('conditional cleanup sends If-Match and stops on version conflict', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'DELETE');
+      expect(request.headers['If-Match'], 'etag-1');
+      expect(request.followRedirects, isFalse);
+      return http.Response('', 412);
+    });
+    addTearDown(client.close);
+    final api = OneDriveApi(tokenResolver: token, client: client);
+    final item = OneDriveApi.parseItem({'id': 'f', 'size': 3, 'file': {}}, account);
+    await expectLater(api.trashUnchanged(account, TransferSnapshot(item, 'etag-1', trashTag: 'etag-1')),
+      throwsA(isA<DriveApiException>().having((error) => error.statusCode, 'status', 412)));
+  });
+
+  test('upload session never receives Graph token and creates a renamed copy', () async {
+    final client = MockClient((request) async {
+      if (request.method == 'POST') {
+        expect(request.url.host, 'graph.microsoft.com');
+        expect(((jsonDecode(request.body) as Map)['item'] as Map)['@microsoft.graph.conflictBehavior'], 'rename');
+        return http.Response(jsonEncode({'uploadUrl': 'https://upload.example.invalid/session'}), 200);
+      }
+      expect(request.headers.containsKey('Authorization'), false);
+      expect(request.headers['Content-Range'], 'bytes 0-2/3');
+      expect(request.bodyBytes, [1,2,3]);
+      return http.Response('{"id":"new"}', 201);
+    });
+    addTearDown(client.close);
+    final api = OneDriveApi(tokenResolver: token, client: client);
+    expect(await api.uploadTransfer(account, 'root', 'file', 'application/octet-stream', 3,
+      (start,end) async => Uint8List.fromList([1,2,3])), 'new');
   });
 }

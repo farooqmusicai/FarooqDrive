@@ -9,6 +9,7 @@ import 'google_drive_api.dart';
 import 'models.dart';
 import 'microsoft_auth.dart';
 import 'onedrive_api.dart';
+import 'verified_transfer.dart';
 
 class DriveController extends ChangeNotifier {
   DriveController({CloudDriveApi? api, GoogleAccountAuthorizer? authorizer,
@@ -57,6 +58,8 @@ class DriveController extends ChangeNotifier {
   String desktopClientSecret = '';
   String query = '';
   String sort = 'name';
+  String layout = 'details';
+  void setLayout(String value) { layout = value; notifyListeners(); }
   FileViewMode viewMode = FileViewMode.all;
   DriveClipboard? clipboard;
   bool loading = false;
@@ -681,130 +684,76 @@ class DriveController extends ChangeNotifier {
     }
   }
 
-  Future<void> paste() => _guard(() async {
-        final clip = clipboard;
-        final destination = selectedAccount;
-        if (clip == null || destination == null) {
-          throw const DriveApiException('Open the destination folder first.');
-        }
-        if (clip.mode == ClipboardMode.move) {
-          throw const DriveApiException('Move is temporarily disabled in this development build until destination verification and your final Yes/No confirmation are implemented. Use Copy; your source will remain.');
-        }
-        for (final item in clip.items) {
-          final source = accountById(item.accountId)!;
-          if (item.isFolder) {
-            if (source.id == destination.id && clip.mode == ClipboardMode.move) {
-              await apiFor(source).move(source, item, currentFolderId);
-            } else {
-              final sourceStats = await _treeStats(source, item.id);
-              final copiedFolderId = await _copyFolderTree(
-                source,
-                destination,
-                item,
-                currentFolderId,
-              );
-              final destinationStats =
-                  await _treeStats(destination, copiedFolderId);
-              final complete = sourceStats.files == destinationStats.files &&
-                  sourceStats.folders == destinationStats.folders &&
-                  (source.id != destination.id ||
-                      sourceStats.bytes == destinationStats.bytes);
-              if (!complete) {
-                throw const DriveApiException(
-                  'Transfer verification failed. The source was kept unchanged.',
-                );
-              }
-              if (clip.mode == ClipboardMode.move) {
-                await apiFor(source).setTrashed(source, item.id, true);
-              }
-            }
-          } else if (source.id == destination.id) {
-            clip.mode == ClipboardMode.copy
-                ? await apiFor(source).copy(source, item, currentFolderId)
-                : await apiFor(source).move(source, item, currentFolderId);
-          } else {
-            final transfer = await apiFor(source).downloadForTransfer(source, item);
-            final uploadedId = await apiFor(destination).uploadBytes(
-              destination,
-              parentId: currentFolderId,
-              name: transfer.name,
-              bytes: transfer.bytes,
-              mimeType: transfer.mimeType,
-            );
-            final verified = await apiFor(destination).verifyUploadedFile(
-              destination,
-              uploadedId,
-              transfer.bytes.length,
-            );
-            if (!verified) {
-              throw const DriveApiException(
-                'Transfer verification failed. The source was kept unchanged.',
-              );
-            }
-            if (clip.mode == ClipboardMode.move) {
-              await apiFor(source).setTrashed(source, item.id, true);
+  Future<bool> Function(List<VerifiedCopy> files, int retained)? confirmSourceCleanup;
+  String transferResult = '';
+  bool transferActive = false;
+  bool _cancelTransfer = false;
+  int treeRevision = 0;
+  void cancelTransfer() { _cancelTransfer = true; }
+  void _checkTransferCancelled() {
+    if (_cancelTransfer) throw const DriveApiException('Transfer cancelled. Unconfirmed sources retained; any completed copies remain at the destination.');
+  }
+
+  Future<void> paste() async {
+    if (loading) return;
+    await _guard(() async {
+      final clip = clipboard;
+      final destination = selectedAccount;
+      final parent = currentFolderId;
+      if (clip == null || destination == null) throw const DriveApiException('Open the destination folder first.');
+      _cancelTransfer = false;
+      transferActive = true;
+      transferResult = '';
+      final transfer = VerifiedTransfer(apiFor, (message) {
+        operationMessage = message;
+        notifyListeners();
+      }, _checkTransferCancelled);
+      try {
+        await transfer.run([
+          for (final item in clip.items) (accountById(item.accountId) ?? (throw const DriveApiException('Source account disconnected.')), item),
+        ], destination, parent);
+        final eligible = transfer.copies.where((copy) => copy.source.trashTag != null).toList();
+        final retained = transfer.copies.length - eligible.length;
+        var cleaned = 0;
+        if (clip.mode == ClipboardMode.move && eligible.isNotEmpty) {
+          _checkTransferCancelled();
+          final accepted = await confirmSourceCleanup?.call(List.unmodifiable(eligible), retained) ?? false;
+          if (accepted) {
+            for (final copy in eligible) {
+              operationMessage = 'Rechecking and recycling ${copy.source.item.name}…';
+              notifyListeners();
+              await transfer.cleanup(copy);
+              cleaned++;
+              await _recordActivity('Verified source recycled', '${copy.source.item.name} → ${destination.email}', accountEmail: copy.sourceAccount.email);
             }
           }
-          await _recordActivity(
-            clip.mode == ClipboardMode.copy ? 'Copied' : 'Moved',
-            '${item.name} → ${destination.email} / ${currentPath.map((entry) => entry.name).join(' / ')}',
-            accountEmail: destination.email,
-          );
         }
+        transferResult = '${transfer.copies.length} file(s) copied and SHA-256 verified. $cleaned source file(s) moved to Recycle Bin. Original folder containers remain. '
+          '${clip.mode == ClipboardMode.move && retained > 0 ? "$retained source file(s) retained because conditional cleanup is unavailable." : ""}';
+        await _recordActivity('Transfer complete', transferResult, accountEmail: destination.email);
         if (clip.mode == ClipboardMode.move) clipboard = null;
+      } on DriveApiException {
+        transferResult = '${transfer.copies.length} file(s) verified before interruption. Review Activity for any confirmed source cleanup; other sources remain. Partial destination copies may remain.';
+        rethrow;
+      } catch (_) {
+        transferResult = '${transfer.copies.length} file(s) verified before interruption. Partial destination copies may remain. No further source cleanup was performed.';
+        throw const DriveApiException('Transfer interrupted by a storage or connection error. Check disk space and sign-in, then retry. Existing destination copies are retained.');
+      } finally {
+        transferActive = false;
         await _afterMutation();
-      });
-
-  Future<String> _copyFolderTree(
-    DriveAccount source,
-    DriveAccount destination,
-    DriveItem folder,
-    String destinationParentId,
-  ) async {
-    final newFolderId = await apiFor(destination).createFolder(
-      destination,
-      destinationParentId,
-      folder.name,
-    );
-    final children = await apiFor(source).listFolder(source, folder.id);
-    for (final child in children) {
-      if (child.isFolder) {
-        await _copyFolderTree(source, destination, child, newFolderId);
-      } else if (source.id == destination.id) {
-        await apiFor(source).copy(source, child, newFolderId);
-      } else {
-        final transfer = await apiFor(source).downloadForTransfer(source, child);
-        await apiFor(destination).uploadBytes(
-          destination,
-          parentId: newFolderId,
-          name: transfer.name,
-          bytes: transfer.bytes,
-          mimeType: transfer.mimeType,
-        );
       }
-    }
-    return newFolderId;
+    }, message: 'Preparing verified transfer…');
   }
 
-  Future<_TreeStats> _treeStats(
-    DriveAccount account,
-    String folderId,
-  ) async {
-    var stats = const _TreeStats(folders: 1, files: 0, bytes: 0);
-    final children = await apiFor(account).listFolder(account, folderId);
-    for (final child in children) {
-      if (child.isFolder) {
-        stats += await _treeStats(account, child.id);
-      } else {
-        stats += _TreeStats(
-          folders: 0,
-          files: 1,
-          bytes: child.size ?? 0,
-        );
-      }
-    }
-    return stats;
-  }
+  Future<void> navigateTree(String accountId, List<FolderCrumb> path) => _guard(() async {
+    _rememberLocation();
+    selectedAccountId = accountId;
+    paths[accountId] = List.of(path);
+    selectedKeys.clear();
+    query = '';
+    viewMode = FileViewMode.all;
+    await _loadFiles();
+  });
 
   Future<void> _afterMutation() async {
     _invalidateIndex();
@@ -812,6 +761,7 @@ class DriveController extends ChangeNotifier {
   }
 
   void _invalidateIndex() {
+    treeRevision++;
     indexReady = false;
     indexedFiles.clear();
     folderSizes.clear();
@@ -862,6 +812,7 @@ class DriveController extends ChangeNotifier {
     Future<void> Function() action, {
     String message = 'Working…',
   }) async {
+    if (loading) return;
     loading = true;
     operationMessage = message;
     error = null;
@@ -880,23 +831,6 @@ class DriveController extends ChangeNotifier {
       notifyListeners();
     }
   }
-}
-
-class _TreeStats {
-  const _TreeStats({
-    required this.folders,
-    required this.files,
-    required this.bytes,
-  });
-  final int folders;
-  final int files;
-  final int bytes;
-
-  _TreeStats operator +(_TreeStats other) => _TreeStats(
-        folders: folders + other.folders,
-        files: files + other.files,
-        bytes: bytes + other.bytes,
-      );
 }
 
 class _NavigationState {

@@ -8,7 +8,7 @@ import 'models.dart';
 
 export 'cloud_drive_api.dart' show DriveApiException, TransferFile;
 
-class GoogleDriveApi implements CloudDriveApi {
+class GoogleDriveApi extends CloudDriveApi {
   GoogleDriveApi({http.Client? client}) : _client = client ?? http.Client();
   final http.Client _client;
 
@@ -21,6 +21,70 @@ class GoogleDriveApi implements CloudDriveApi {
 
   static const _api = 'https://www.googleapis.com/drive/v3';
   static const _upload = 'https://www.googleapis.com/upload/drive/v3';
+
+  @override
+  Future<TransferSnapshot> snapshot(DriveAccount account, String id) async {
+    final data = await _json(account, '$_api/files/${Uri.encodeComponent(id)}?fields=id,name,mimeType,size,modifiedTime,parents,ownedByMe,capabilities(canDownload),version,trashed');
+    if (data['trashed'] == true || data['version'] == null) throw const DriveApiException('Source unavailable or version missing.');
+    // Drive v3 does not expose a documented conditional Trash precondition.
+    // Deliberately withhold a cleanup tag; never downgrade to unguarded Trash.
+    return TransferSnapshot(DriveItem.fromJson(data, account: account), '${data['version']}');
+  }
+
+  @override
+  Future<TransferDownload> openTransfer(DriveAccount account, DriveItem item) async {
+    if (item.isFolder || !item.canDownload) throw const DriveApiException('This item cannot be downloaded.');
+    const exports = {
+      'application/vnd.google-apps.document': ('application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx'),
+      'application/vnd.google-apps.spreadsheet': ('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.xlsx'),
+      'application/vnd.google-apps.presentation': ('application/vnd.openxmlformats-officedocument.presentationml.presentation', '.pptx'),
+      'application/vnd.google-apps.drawing': ('image/png', '.png'),
+    };
+    final export = exports[item.mimeType];
+    if (export == null && item.mimeType.startsWith('application/vnd.google-apps.')) throw const DriveApiException('This Google-native format cannot be exported.');
+    final uri = export == null
+        ? Uri.parse('$_api/files/${Uri.encodeComponent(item.id)}?alt=media')
+        : Uri.parse('$_api/files/${Uri.encodeComponent(item.id)}/export').replace(queryParameters: {'mimeType': export.$1});
+    final request = http.Request('GET', uri)..headers['Authorization'] = 'Bearer ${account.accessToken}';
+    final response = await _client.send(request).timeout(const Duration(seconds: 60));
+    if (response.statusCode != 200) {
+      await response.stream.drain<void>();
+      throw DriveApiException('Google download/export failed (${response.statusCode}).');
+    }
+    final name = export == null || item.name.toLowerCase().endsWith(export.$2) ? item.name : '${item.name}${export.$2}';
+    return TransferDownload(name, export?.$1 ?? item.mimeType, response.stream, export == null ? item.size : response.contentLength);
+  }
+
+  @override
+  Future<String> uploadTransfer(DriveAccount account, String parentId,
+      String name, String mimeType, int length,
+      Future<Uint8List> Function(int, int) readRange) async {
+    final start = http.Request('POST', Uri.parse('$_upload/files?uploadType=resumable&fields=id'))
+      ..followRedirects = false
+      ..headers.addAll({'Authorization': 'Bearer ${account.accessToken}', 'Content-Type': 'application/json', 'X-Upload-Content-Type': mimeType, 'X-Upload-Content-Length': '$length'})
+      ..body = jsonEncode({'name': name, 'mimeType': mimeType, 'parents': [parentId]});
+    final initialized = await http.Response.fromStream(await _client.send(start).timeout(const Duration(seconds: 60)));
+    final location = initialized.headers['location'];
+    if (initialized.statusCode != 200 || location == null) throw const DriveApiException('Google upload session could not be created.');
+    final uri = Uri.parse(location);
+    if (uri.scheme != 'https' || uri.host != 'www.googleapis.com' || uri.userInfo.isNotEmpty || uri.port != 443) throw const DriveApiException('Unexpected Google upload URL.');
+    var offset = 0;
+    do {
+      final end = (offset + 10 * 1024 * 1024).clamp(0, length);
+      final request = http.Request('PUT', uri)..followRedirects = false
+        ..headers.addAll({'Authorization': 'Bearer ${account.accessToken}', 'Content-Type': mimeType,
+          'Content-Range': length == 0 ? 'bytes */0' : 'bytes $offset-${end - 1}/$length'})
+        ..bodyBytes = await readRange(offset, end);
+      final response = await http.Response.fromStream(await _client.send(request).timeout(const Duration(seconds: 60)));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (end != length) throw const DriveApiException('Google completed an upload early.');
+        return (jsonDecode(response.body) as Map)['id'] as String;
+      }
+      if (response.statusCode != 308 || end == length || response.headers['range'] != 'bytes=0-${end - 1}') throw const DriveApiException('Google upload interrupted. Source retained; retry creates a new copy.');
+      offset = end;
+    } while (offset < length);
+    throw const DriveApiException('Google upload was not completed.');
+  }
 
   Future<Map<String, dynamic>> _json(
     DriveAccount account,

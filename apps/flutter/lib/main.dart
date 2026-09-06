@@ -15,6 +15,8 @@ import 'google_auth.dart';
 import 'models.dart';
 import 'native_file_icon.dart';
 import 'official_icon_data.dart';
+import 'explorer_widgets.dart';
+import 'transfer_spool.dart';
 
 const _driveColors = <Color>[
   Color(0xff00a884),
@@ -115,6 +117,22 @@ class _FileManagerPageState extends State<FileManagerPage> {
   void initState() {
     super.initState();
     controller.addListener(_changed);
+    controller.confirmSourceCleanup = (files, retained) async {
+      if (!mounted) return false;
+      return await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+        title: const Text('Verified copies are ready. Remove originals?'),
+        content: SizedBox(width: 560, child: SingleChildScrollView(child: Text(
+          'All copied file contents passed SHA-256 verification.\n\n'
+          'Move these ${files.length} original file(s) to their source Recycle Bin?\n'
+          'No keeps both copies. Source and destination versions are checked again before cleanup.\n\n'
+          '${files.map((copy) => "${copy.source.item.name}\n${copy.sourceAccount.email} → ${copy.destination.email} / ${copy.copy.item.name}").join("\n\n")}\n\n'
+          '$retained other source file(s) must remain because conditional cleanup is unavailable. Original folder containers remain.'))),
+        actions: [
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('No — keep originals')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Yes — move originals to Recycle Bin')),
+        ],
+      )) ?? false;
+    };
     _loadSidebarPreference();
     controller.initialize();
   }
@@ -243,7 +261,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
         title: const Text('Add account'),
         children: [
           SimpleDialogOption(onPressed: () => Navigator.pop(context, CloudProviderType.google), child: const Text('Google Drive')),
-          SimpleDialogOption(onPressed: () => Navigator.pop(context, CloudProviderType.onedrive), child: const Text('Microsoft OneDrive — read-only test')),
+          SimpleDialogOption(onPressed: () => Navigator.pop(context, CloudProviderType.onedrive), child: const Text('Microsoft OneDrive')),
         ],
       ));
       if (provider == null || !mounted) return;
@@ -362,7 +380,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
             Text('Help — How FarooqDrive works'),
           ],
         ),
-        content: const DefaultTabController(
+        content: DefaultTabController(
           length: 2,
           child: SizedBox(
             width: 720,
@@ -379,7 +397,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _HelpSection(title: '1. Connect your Drives', text: 'Select Add account and choose Google Drive or, on Windows, Microsoft OneDrive. Approve access in your browser. Repeat for each account.'),
-                            _HelpSection(title: 'OneDrive private test', text: 'OneDrive currently supports browsing, quota, search and downloads up to 32 MiB. Upload, copy, move and Trash are blocked for OneDrive in this test. Microsoft refresh tokens are kept in secure device storage; disconnect removes the saved Microsoft session. A failed account does not remove your other accounts. Work or school access may require organization approval. Larger transfers and final source-removal confirmation are not yet available.'),
+                            _HelpSection(title: 'Windows transfers and limits', text: 'Copy/Paste and internal drag-and-drop use a temporary disk file, sequential uploads and full SHA-256 destination verification. Private candidate limit: 1 GiB per file, 10,000 items and 64 folder levels per batch. Keep enough free disk space for the largest file plus normal Windows needs. Transfer traffic uses your internet connection, including a second destination download for verification. Google-native documents are exported to Office formats or PNG; unsupported formats are retained. Move asks Yes/No after verification. Only unchanged OneDrive source files support conditional Recycle Bin cleanup; Google source files and original folder containers remain. No keeps both copies. Interrupted uploads may leave destination copies; retries create new copies. Automatic resume after restarting is not available. Native download and file-picker upload still use memory; OneDrive download limit is 32 MiB. Account connections have no fixed app cap; service quotas, organization policies and device resources apply.'),
+                            _HelpSection(title: 'Temporary storage', text: 'Transfer cache: ${TransferSpool.cachePath}. Files are not encrypted by FarooqDrive in this folder. Completed or failed jobs remove their own cache files; an app crash may leave job folders here. Close FarooqDrive before manually removing leftover job folders. Transfers never delete original local files.'),
                             _HelpSection(title: '2. Browse everything together', text: 'All Drives combines connected accounts. Select one account for its My Drive. Double-click a folder to open it; use Back, Up or the path bar to return.'),
                             _HelpSection(title: '3. All, Folders and Files', text: 'All shows folders and files together. The other tabs filter the list. Search works across all indexed Drives and every count changes to match the results currently shown.'),
                             _HelpSection(title: '4. Manage files', text: 'Select one or more items, then use Download, Copy, Cut, Paste, Rename or Trash. For Cut or Copy, open the destination Drive or folder before selecting Paste.'),
@@ -498,7 +517,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                     onTrash: () async {
                       if (await _confirm(
                         'Move to Trash?',
-                        'The selected items will be moved to Google Drive Trash.',
+                        'The selected items will be moved to their provider Trash or Recycle Bin.',
                       )) {
                         await controller.trashSelected();
                       }
@@ -506,6 +525,9 @@ class _FileManagerPageState extends State<FileManagerPage> {
                     onDownload: _download,
                   ),
                   _FileViews(controller: controller),
+                  if (controller.transferResult.isNotEmpty) Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                    child: SelectableText(controller.transferResult, style: const TextStyle(fontSize: 12))),
                   Expanded(child: _FileList(controller: controller)),
                 ],
               ),
@@ -533,12 +555,13 @@ class _FileManagerPageState extends State<FileManagerPage> {
                             child: CircularProgressIndicator(strokeWidth: 3),
                           ),
                           const SizedBox(width: 16),
-                          Text(
+                          Flexible(child: Text(
                             controller.indexing
                                 ? 'Scanning all Drives and folders…'
                                 : controller.operationMessage,
                             style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
+                          )),
+                          if (controller.transferActive) TextButton(onPressed: controller.cancelTransfer, child: const Text('Cancel transfer')),
                         ],
                       ),
                     ),
@@ -684,7 +707,7 @@ class _Sidebar extends StatelessWidget {
               Expanded(
                 child: ListView(
                   children: controller.accounts
-                      .map((account) => _DriveTile(
+                      .map((account) => DriveTree(key: ValueKey(account.id), controller: controller, account: account, child: _DriveTile(
                             title: '${account.provider == CloudProviderType.onedrive ? 'OneDrive · ' : 'Google · '}${account.name}',
                             subtitle: account.email,
                             subtitleColor:
@@ -722,7 +745,7 @@ class _Sidebar extends StatelessWidget {
                                 await controller.disconnectAccount(account.id);
                               }
                             },
-                          ))
+                          )))
                       .toList(),
                 ),
               ),
@@ -1026,7 +1049,7 @@ class _StorageSummary extends StatelessWidget {
           const SizedBox(width: 10),
           _StorageCard(
             icon: Icons.data_usage,
-            label: 'Google Drive used',
+            label: controller.allDrives ? 'Cloud storage used' : '${controller.selectedAccount?.provider == CloudProviderType.onedrive ? 'OneDrive' : 'Google Drive'} used',
             value: _formatBytes(used),
           ),
           const SizedBox(width: 10),
@@ -1035,7 +1058,7 @@ class _StorageSummary extends StatelessWidget {
             label: 'Owned files indexed',
             value: controller.indexReady
                 ? _formatBytes(indexedBytes)
-                : 'Calculating…',
+                : controller.indexing ? 'Scanning…' : 'Not scanned',
           ),
           const SizedBox(width: 10),
           _StorageCard(
@@ -1225,6 +1248,11 @@ class _FileViews extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
+              DropdownButton<String>(value: controller.layout,
+                onChanged: (value) { if (value != null) controller.setLayout(value); },
+                items: const [DropdownMenuItem(value: 'details', child: Text('Details')),
+                  DropdownMenuItem(value: 'list', child: Text('List')),
+                  DropdownMenuItem(value: 'icons', child: Text('Large icons'))]),
               ChoiceChip(
                 avatar: const Icon(Icons.select_all_outlined, size: 18),
                 label: Text('All (${controller.allItemCount})'),
@@ -1321,6 +1349,18 @@ class _FileList extends StatefulWidget {
 class _FileListState extends State<_FileList> {
   DriveController get controller => widget.controller;
   final ScrollController _horizontalScroll = ScrollController();
+
+  Widget _transferRow(DriveItem item, Widget child) {
+    final draggable = CloudDragSource(controller: controller, item: item, child: child);
+    if (!item.isFolder) return draggable;
+    final account = controller.accountById(item.accountId)!;
+    final api = controller.apiFor(account);
+    final path = controller.allDrives
+        ? [FolderCrumb(api.rootFolderId, api.rootFolderLabel)]
+        : controller.currentPath;
+    return CloudDropTarget(controller: controller, accountId: item.accountId,
+      path: [...path, FolderCrumb(item.id, item.name)], child: draggable);
+  }
 
   double nameWidth = 380;
   double accountWidth = 240;
@@ -1567,6 +1607,34 @@ class _FileListState extends State<_FileList> {
         ),
       );
     }
+    if (controller.layout != 'details') {
+      Widget tile(DriveItem item) => _transferRow(item, Card(
+        color: controller.selectedKeys.contains(controller.keyOf(item)) ? const Color(0xffdce8ff) : null,
+        child: InkWell(onTap: () => controller.selectOnly(item),
+          onDoubleTap: () => _openItem(context, item),
+          onSecondaryTap: () async {
+            final action = await showDialog<_ItemAction>(context: context, builder: (context) => SimpleDialog(
+              title: Text(item.name), children: [for (final entry in <_ItemAction, String>{
+                _ItemAction.open: 'Open', _ItemAction.copy: 'Copy', _ItemAction.cut: 'Cut',
+                if (item.isFolder) _ItemAction.paste: 'Paste here', _ItemAction.rename: 'Rename', _ItemAction.delete: 'Trash',
+              }.entries) SimpleDialogOption(onPressed: () => Navigator.pop(context, entry.key), child: Text(entry.value))]));
+            if (action != null && context.mounted) await _runMenuAction(context, item, action);
+          },
+          child: controller.layout == 'list' ? ListTile(
+            leading: Checkbox(value: controller.selectedKeys.contains(controller.keyOf(item)), onChanged: (value) => controller.toggle(item, value ?? false)),
+            title: Text(item.name), subtitle: Text(item.accountEmail), trailing: Text(size(controller.sizeOf(item))))
+          : Padding(padding: const EdgeInsets.all(8), child: Column(children: [
+              Row(children: [Checkbox(value: controller.selectedKeys.contains(controller.keyOf(item)), onChanged: (value) => controller.toggle(item, value ?? false)),
+                NativeFileIcon(fileName: item.name, isFolder: item.isFolder, size: 42)]),
+              Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(item.accountEmail, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+            ]))),
+      ));
+      return Padding(padding: const EdgeInsets.all(16), child: controller.layout == 'list'
+        ? ListView.builder(itemCount: files.length, itemBuilder: (context, index) => tile(files[index]))
+        : GridView.builder(gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 200, mainAxisExtent: 150),
+          itemCount: files.length, itemBuilder: (context, index) => tile(files[index])));
+    }
     final allSelected =
         files.every((item) => controller.selectedKeys.contains(controller.keyOf(item)));
     final showLocation =
@@ -1633,7 +1701,7 @@ class _FileListState extends State<_FileList> {
             ),
           ),
           for (final item in files)
-            Column(
+            _transferRow(item, Column(
               children: [
                 ListTile(
                   dense: true,
@@ -1827,7 +1895,7 @@ class _FileListState extends State<_FileList> {
                 ),
                 const Divider(height: 1),
               ],
-            ),
+            )),
                   ],
                 ),
               ),
