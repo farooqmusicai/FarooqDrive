@@ -4,15 +4,29 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'google_auth.dart';
+import 'cloud_drive_api.dart';
 import 'google_drive_api.dart';
 import 'models.dart';
 
 class DriveController extends ChangeNotifier {
-  DriveController({GoogleDriveApi? api, GoogleAccountAuthorizer? authorizer})
+  DriveController({CloudDriveApi? api, GoogleAccountAuthorizer? authorizer,
+    Map<CloudProviderType, CloudDriveApi> providers = const {},
+  })
       : api = api ?? GoogleDriveApi(),
+        _providers = Map.unmodifiable(providers),
         authorizer = authorizer ?? GoogleAccountAuthorizer();
 
-  final GoogleDriveApi api;
+  final CloudDriveApi api;
+  final Map<CloudProviderType, CloudDriveApi> _providers;
+
+  CloudDriveApi apiFor(DriveAccount account) {
+    final provider = _providers[account.provider] ??
+        (account.provider == CloudProviderType.google ? api : null);
+    if (provider == null || provider.providerType != account.provider) {
+      throw const DriveApiException('This cloud provider is not configured.');
+    }
+    return provider;
+  }
   final GoogleAccountAuthorizer authorizer;
   final List<DriveAccount> accounts = [];
   final List<DriveItem> files = [];
@@ -94,7 +108,8 @@ class DriveController extends ChangeNotifier {
         mode == FileViewMode.nameConflicts;
     final useGlobalIndex = duplicateView ||
         (normalized.isNotEmpty && indexReady);
-    final source = useGlobalIndex ? indexedFiles : files;
+    final source = useGlobalIndex && indexReady ? indexedFiles :
+        (duplicateView ? <DriveItem>[] : files);
     final searched = source.where((item) {
       if (normalized.isEmpty) return true;
       final searchable = <String>[
@@ -251,8 +266,7 @@ class DriveController extends ChangeNotifier {
           () => <FolderCrumb>[const FolderCrumb('root', 'My Drive')],
         );
         selectedAccountId = added.id;
-        indexReady = false;
-        await _buildGlobalIndex();
+        _invalidateIndex();
         await _loadFiles();
         await _recordActivity(
           'Drive connected',
@@ -271,7 +285,6 @@ class DriveController extends ChangeNotifier {
           );
         }
         if (id == null) await _refreshQuotas();
-        if (!indexReady) await _buildGlobalIndex();
         await _loadFiles();
         if (id != null) {
           final account = accountById(id);
@@ -285,13 +298,14 @@ class DriveController extends ChangeNotifier {
 
   Future<void> refresh() => _guard(() async {
         await _refreshQuotas();
-        indexReady = false;
+        _invalidateIndex();
         await _loadFiles();
-        await _buildGlobalIndex();
       });
 
   Future<void> _refreshQuotas() async {
-    final refreshed = await Future.wait(accounts.map(api.refreshQuota));
+    final refreshed = await Future.wait(accounts.map(
+      (account) => apiFor(account).refreshQuota(account),
+    ));
     for (final account in refreshed) {
       final index = accounts.indexWhere((item) => item.id == account.id);
       if (index >= 0) accounts[index] = account;
@@ -309,7 +323,7 @@ class DriveController extends ChangeNotifier {
                   const [FolderCrumb('root', 'My Drive')])
               .last
               .id;
-      return api.listFolder(account, folder);
+      return apiFor(account).listFolder(account, folder);
     }));
     files.clear();
     for (var index = 0; index < groups.length; index++) {
@@ -413,7 +427,9 @@ class DriveController extends ChangeNotifier {
     indexing = true;
     notifyListeners();
     try {
-      final groups = await Future.wait(accounts.map(api.listAllFiles));
+      final groups = await Future.wait(accounts.map(
+        (account) => apiFor(account).listAllFiles(account),
+      ));
       folderSizes.clear();
       for (final group in groups) {
         _calculateFolderSizes(group);
@@ -519,7 +535,7 @@ class DriveController extends ChangeNotifier {
     indexedFiles.removeWhere((item) => item.accountId == accountId);
     paths.remove(accountId);
     if (selectedAccountId == accountId) selectedAccountId = null;
-    indexReady = false;
+    _invalidateIndex();
     selectedKeys.clear();
     await _loadFiles();
     await _recordActivity('Drive disconnected', email, accountEmail: email);
@@ -528,7 +544,7 @@ class DriveController extends ChangeNotifier {
   Future<void> createFolder(String name) => _guard(() async {
         final account = selectedAccount;
         if (account == null) throw const DriveApiException('Open one Drive first.');
-        await api.createFolder(account, currentFolderId, name.trim());
+        await apiFor(account).createFolder(account, currentFolderId, name.trim());
         await _recordActivity(
           'Folder created',
           '${name.trim()} in ${currentPath.map((item) => item.name).join(' / ')}',
@@ -540,7 +556,8 @@ class DriveController extends ChangeNotifier {
   Future<void> renameSelected(String name) => _guard(() async {
         if (selectedItems.length != 1) return;
         final item = selectedItems.single;
-        await api.rename(accountById(item.accountId)!, item.id, name.trim());
+        final account = accountById(item.accountId)!;
+        await apiFor(account).rename(account, item.id, name.trim());
         await _recordActivity(
           'Renamed',
           '${item.name} → ${name.trim()}',
@@ -551,7 +568,8 @@ class DriveController extends ChangeNotifier {
 
   Future<void> trashSelected() => _guard(() async {
         for (final item in selectedItems) {
-          await api.setTrashed(accountById(item.accountId)!, item.id, true);
+          final account = accountById(item.accountId)!;
+          await apiFor(account).setTrashed(account, item.id, true);
           await _recordActivity(
             'Moved to Trash',
             item.name,
@@ -565,7 +583,7 @@ class DriveController extends ChangeNotifier {
       _guard(() async {
         final account = selectedAccount;
         if (account == null) throw const DriveApiException('Open one Drive first.');
-        await api.uploadBytes(
+        await apiFor(account).uploadBytes(
           account,
           parentId: currentFolderId,
           name: name,
@@ -586,7 +604,8 @@ class DriveController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      final bytes = await api.downloadBytes(accountById(item.accountId)!, item);
+      final account = accountById(item.accountId)!;
+      final bytes = await apiFor(account).downloadBytes(account, item);
       await _recordActivity(
         'Downloaded',
         item.name,
@@ -610,7 +629,7 @@ class DriveController extends ChangeNotifier {
           final source = accountById(item.accountId)!;
           if (item.isFolder) {
             if (source.id == destination.id && clip.mode == ClipboardMode.move) {
-              await api.move(source, item, currentFolderId);
+              await apiFor(source).move(source, item, currentFolderId);
             } else {
               final sourceStats = await _treeStats(source, item.id);
               final copiedFolderId = await _copyFolderTree(
@@ -631,23 +650,23 @@ class DriveController extends ChangeNotifier {
                 );
               }
               if (clip.mode == ClipboardMode.move) {
-                await api.setTrashed(source, item.id, true);
+                await apiFor(source).setTrashed(source, item.id, true);
               }
             }
           } else if (source.id == destination.id) {
             clip.mode == ClipboardMode.copy
-                ? await api.copy(source, item, currentFolderId)
-                : await api.move(source, item, currentFolderId);
+                ? await apiFor(source).copy(source, item, currentFolderId)
+                : await apiFor(source).move(source, item, currentFolderId);
           } else {
-            final transfer = await api.downloadForTransfer(source, item);
-            final uploadedId = await api.uploadBytes(
+            final transfer = await apiFor(source).downloadForTransfer(source, item);
+            final uploadedId = await apiFor(destination).uploadBytes(
               destination,
               parentId: currentFolderId,
               name: transfer.name,
               bytes: transfer.bytes,
               mimeType: transfer.mimeType,
             );
-            final verified = await api.verifyUploadedFile(
+            final verified = await apiFor(destination).verifyUploadedFile(
               destination,
               uploadedId,
               transfer.bytes.length,
@@ -658,7 +677,7 @@ class DriveController extends ChangeNotifier {
               );
             }
             if (clip.mode == ClipboardMode.move) {
-              await api.setTrashed(source, item.id, true);
+              await apiFor(source).setTrashed(source, item.id, true);
             }
           }
           await _recordActivity(
@@ -677,20 +696,20 @@ class DriveController extends ChangeNotifier {
     DriveItem folder,
     String destinationParentId,
   ) async {
-    final newFolderId = await api.createFolder(
+    final newFolderId = await apiFor(destination).createFolder(
       destination,
       destinationParentId,
       folder.name,
     );
-    final children = await api.listFolder(source, folder.id);
+    final children = await apiFor(source).listFolder(source, folder.id);
     for (final child in children) {
       if (child.isFolder) {
         await _copyFolderTree(source, destination, child, newFolderId);
       } else if (source.id == destination.id) {
-        await api.copy(source, child, newFolderId);
+        await apiFor(source).copy(source, child, newFolderId);
       } else {
-        final transfer = await api.downloadForTransfer(source, child);
-        await api.uploadBytes(
+        final transfer = await apiFor(source).downloadForTransfer(source, child);
+        await apiFor(destination).uploadBytes(
           destination,
           parentId: newFolderId,
           name: transfer.name,
@@ -707,7 +726,7 @@ class DriveController extends ChangeNotifier {
     String folderId,
   ) async {
     var stats = const _TreeStats(folders: 1, files: 0, bytes: 0);
-    final children = await api.listFolder(account, folderId);
+    final children = await apiFor(account).listFolder(account, folderId);
     for (final child in children) {
       if (child.isFolder) {
         stats += await _treeStats(account, child.id);
@@ -723,9 +742,14 @@ class DriveController extends ChangeNotifier {
   }
 
   Future<void> _afterMutation() async {
-    indexReady = false;
+    _invalidateIndex();
     await _loadFiles();
-    await _buildGlobalIndex();
+  }
+
+  void _invalidateIndex() {
+    indexReady = false;
+    indexedFiles.clear();
+    folderSizes.clear();
   }
 
   Future<void> clearActivityLog() async {

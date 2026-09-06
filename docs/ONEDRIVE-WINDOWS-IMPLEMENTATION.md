@@ -1,6 +1,14 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
-Status: Milestone 0 baseline passed; Milestone 1 provider foundation authored, awaiting CI. OneDrive authentication and file operations are not implemented.
+Status: Milestone 1 analyze/tests/Windows compilation passed in run 34045708699. Provider routing and lazy-index changes authored; their CI is pending. OneDrive authentication and file operations are not implemented.
+
+## Provider-routing checkpoint
+- All controller API operations select the source or destination provider explicitly. Unknown providers fail instead of silently using Google.
+- Account selection/addition, refresh and mutations no longer trigger global scans. Search and duplicate selection trigger scans explicitly.
+- Invalidating the index clears cached files and folder sizes; duplicate results are not shown from an invalid index.
+- Added regression tests for lazy scans, unsupported-provider handling, and mixed-provider copy routing without source Trash.
+- Microsoft secret configuration is reported completed by the owner. Its value has not been read from GitHub and is not yet consumed by a login implementation.
+- UI roots/labels, account restoration for Microsoft, per-account partial failures and transfer confirmation remain subsequent work.
 
 ## Milestone 1 checkpoint
 - Added CloudDriveApi and shared exception/transfer types; GoogleDriveApi implements it and re-exports old type names for existing imports.
