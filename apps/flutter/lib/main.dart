@@ -61,7 +61,7 @@ String _formatCombinedCapacity(Iterable<DriveAccount> accounts) {
 }
 
 bool shouldShowDriveSidebar(double width, {required bool pinned}) =>
-    width >= 1360 || pinned;
+    width >= 1360 || (pinned && width >= 720);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -278,7 +278,13 @@ class _FileManagerPageState extends State<FileManagerPage> {
           children: [
             Icon(Icons.history),
             SizedBox(width: 10),
-            Text('Activity — last 7 days'),
+            Expanded(
+              child: Text(
+                'Activity — last 7 days',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: SizedBox(
@@ -412,15 +418,17 @@ class _FileManagerPageState extends State<FileManagerPage> {
     return Scaffold(
       drawer: !showSidebar
           ? Drawer(
-              child: _Sidebar(
-                controller: controller,
-                onAddAccount: _addAccount,
-                onSettings: _settings,
-                onHelp: _showHelp,
-                pinned: false,
-                showPin: true,
-                closeAfterSelection: true,
-                onPinnedChanged: _setSidebarPinned,
+              child: SafeArea(
+                child: _Sidebar(
+                  controller: controller,
+                  onAddAccount: _addAccount,
+                  onSettings: _settings,
+                  onHelp: _showHelp,
+                  pinned: false,
+                  showPin: width >= 720,
+                  closeAfterSelection: true,
+                  onPinnedChanged: _setSidebarPinned,
+                ),
               ),
             )
           : null,
@@ -842,15 +850,45 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                 Expanded(
-                  child: Text(
-                    controller.allDrives
-                        ? 'All Drives'
-                        : controller.selectedAccount?.name ?? 'FarooqDrive',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xff0b1d31),
+                  child: Builder(
+                    builder: (context) => InkWell(
+                      onTap: showMenu
+                          ? () => Scaffold.of(context).openDrawer()
+                          : null,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 6,
                         ),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                controller.allDrives
+                                    ? 'All Drives'
+                                    : controller.selectedAccount?.name ??
+                                        'FarooqDrive',
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xff0b1d31),
+                                    ),
+                              ),
+                            ),
+                            if (showMenu)
+                              const Icon(
+                                Icons.arrow_drop_down,
+                                color: Color(0xff0b1d31),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 IconButton(
