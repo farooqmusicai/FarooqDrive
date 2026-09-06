@@ -36,7 +36,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('transfer-information')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Cloud transfers use temporary'), findsOneWidget);
-    final info = tester.widget<SelectableText>(find.textContaining('Cloud transfers use temporary'));
+    final info = tester.widget<SelectableText>(find.byWidgetPredicate((widget) =>
+      widget is SelectableText && (widget.data?.startsWith('Cloud transfers use temporary') ?? false)));
     expect(info.style?.color, Colors.red);
     expect(info.style?.fontSize, 11);
   });
