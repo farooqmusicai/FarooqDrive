@@ -11,6 +11,7 @@ class GoogleAccountAuthorizer {
       : _driveApi = driveApi ?? GoogleDriveApi();
 
   static const buildClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+  static const usesPlatformCredentials = false;
   static const clientIdLabel = 'Google Web Client ID';
   static const requiresClientSecret = false;
   static const missingClientIdMessage =
