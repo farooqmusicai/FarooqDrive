@@ -273,47 +273,63 @@ class _FileManagerPageState extends State<FileManagerPage> {
   Future<void> _showActivityLog() async {
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.history),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Activity — last 7 days',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: 680,
-          height: 500,
-          child: controller.activityLog.isEmpty
-              ? const Center(child: Text('No activity recorded yet.'))
-              : ListView.separated(
-                  itemCount: controller.activityLog.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final entry = controller.activityLog[index];
-                    return ListTile(
-                      leading: const Icon(Icons.schedule),
-                      title: Text(entry.action),
-                      subtitle: Text([
-                        entry.details,
-                        if (entry.accountEmail != null) entry.accountEmail!,
-                      ].join('\n')),
-                      trailing: Text(
-                        DateFormat.MMMd().add_jm().format(entry.timestamp),
-                        textAlign: TextAlign.end,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    );
-                  },
+      builder: (context) {
+        final compact = MediaQuery.sizeOf(context).width < 600;
+        return AlertDialog(
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: compact ? 16 : 40,
+            vertical: 24,
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.history),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Activity — last 7 days',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: compact ? 22 : null),
                 ),
-        ),
-        actions: [
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: compact ? double.maxFinite : 680,
+            height: 500,
+            child: controller.activityLog.isEmpty
+                ? const Center(child: Text('No activity recorded yet.'))
+                : ListView.separated(
+                    itemCount: controller.activityLog.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final entry = controller.activityLog[index];
+                      final timestamp =
+                          DateFormat.MMMd().add_jm().format(entry.timestamp);
+                      return ListTile(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: compact ? 0 : 16,
+                          vertical: 4,
+                        ),
+                        leading: const Icon(Icons.schedule),
+                        title: Text(entry.action),
+                        subtitle: Text([
+                          entry.details,
+                          if (entry.accountEmail != null) entry.accountEmail!,
+                          if (compact) timestamp,
+                        ].join('\n')),
+                        trailing: compact
+                            ? null
+                            : Text(
+                                timestamp,
+                                textAlign: TextAlign.end,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
           TextButton.icon(
             onPressed: controller.activityLog.isEmpty
                 ? null
@@ -324,12 +340,13 @@ class _FileManagerPageState extends State<FileManagerPage> {
             icon: const Icon(Icons.delete_sweep_outlined),
             label: const Text('Clear history'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -580,6 +597,16 @@ class _Sidebar extends StatelessWidget {
     if (closeAfterSelection) Navigator.maybePop(context);
   }
 
+  Future<void> _runAfterClosingDrawer(
+    BuildContext context,
+    VoidCallback action,
+  ) async {
+    if (closeAfterSelection) {
+      await Navigator.maybePop(context);
+    }
+    action();
+  }
+
   @override
   Widget build(BuildContext context) => ColoredBox(
         color: const Color(0xff0b1d31),
@@ -710,7 +737,9 @@ class _Sidebar extends StatelessWidget {
                 ),
               ),
               FilledButton.icon(
-                onPressed: controller.loading ? null : onAddAccount,
+                onPressed: controller.loading
+                    ? null
+                    : () => _runAfterClosingDrawer(context, onAddAccount),
                 icon: const Icon(Icons.add),
                 label: const Text('Add Google account'),
               ),
