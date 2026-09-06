@@ -17,7 +17,7 @@ workflows:
       - name: Restore official app icon source
         script: |
           cd apps/flutter
-          base64 --decode assets/FarooqDrive.png.base64 > assets/FarooqDrive.png
+          base64 -D -i assets/FarooqDrive.png.base64 -o assets/FarooqDrive.png
       - name: Install packages
         script: cd apps/flutter && flutter pub get
       - name: Analyze
