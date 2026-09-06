@@ -1,62 +1,29 @@
-# FarooqDrive terms of use
+# FarooqDrive Terms of Use
 
-## Private Windows transfer candidate addendum — 6 September 2026
+Updated: 6 September 2026. Publisher: Mohammad Farooq. Support: support@mymandoob.com.
 
-For the `onedrive-foundation` private Windows candidate, Google Drive and OneDrive
-transfers use local temporary disk storage and the user's network connection.
-Temporary file contents are not encrypted by FarooqDrive. Users must maintain
-enough free space; crashes can leave temporary files requiring manual cleanup
-with the app closed. Verification downloads destination contents again.
-The candidate limits and cleanup behavior in
-[Windows verified transfers](WINDOWS-VERIFIED-TRANSFERS.md) apply, including the
-1 GiB per-file guard, retained Google originals and original folder containers,
-final Yes/No for eligible OneDrive source cleanup, and no automatic restart/resume.
-Provider quotas, permissions, retention and terms apply separately. The following
-existing-release terms describe the published Google-only editions.
+FarooqDrive is an independent file-management client. Use it only with accounts and files you are authorized to access and in accordance with applicable law and the connected providers' terms. This document covers the Windows 21.1 Google Drive/OneDrive functionality; published web/mobile features can differ.
 
-Urdu version: [TERMS-URDU.md](TERMS-URDU.md)
+## Service and user control
 
-Last updated: 5 September 2026
+You select accounts, destinations and file operations. FarooqDrive does not sell cloud storage, combine provider quotas into a new physical drive, or guarantee that a file can be split across accounts. Google and Microsoft retain control of quota, permissions, availability, account restrictions, recycle-bin retention and service changes. Organization policies may restrict access. No fixed account-count cap is imposed by the app; this is not a promise of unlimited performance.
 
-FarooqDrive is a Google Drive file-management client. By using it, the user agrees
-to use the application lawfully and only with Google accounts and files they are
-authorized to access.
+## Transfers and source removal
 
-## User control and responsibility
+Copy and Cut/Paste use the app's supported provider operations. Cut alone does not remove a source. Eligible Move operations first create destination copies and verify their contents, then ask for a separate final Yes/No. Only eligible unchanged OneDrive source files support conditional Recycle Bin cleanup. Google source files and original folder containers remain where this conditional cleanup is unavailable. No keeps originals. Same-account Google-native copies preserve the document type and retain originals; supported cross-account exports can change format and do not preserve every provider-specific feature or metadata. Explicit Trash is a separate user-requested action.
 
-- The user decides which Google accounts to connect and which actions to perform.
-- Copy, move, rename, upload, download, and Trash actions are sent to Google Drive
-  only after a user request.
-- The user is responsible for maintaining suitable backups and reviewing selected
-  items and destinations before destructive or cross-account operations.
-- Google services, quotas, retention, permissions, and availability remain subject
-  to Google's own terms and policies.
+Current Windows transfer limits are 1 GiB per file, 10,000 items and 64 folder levels per batch. OneDrive Download-to-PC is limited to 32 MiB and uses memory. These are app limits, not statements of the providers' maximum capacity. Windows file-picker upload and cloud transfers use local disk space and internet bandwidth, including destination verification downloads. Temporary file contents are not encrypted by FarooqDrive. Keep adequate free disk space. Crash leftovers may require manual cleanup with the app closed. Interrupted operations may leave copies at the destination; retries can produce additional copies. Automatic resume after app restart is not provided.
 
-## Service scope
+## Index, duplicates and interface
 
-FarooqDrive does not provide an intermediate cloud file-storage service and does
-not guarantee uninterrupted access to Google Drive. Features can be affected by
-network connectivity, Google API changes, account permissions, storage limits, or
-operating-system restrictions.
+Saved scan results are snapshots retained until a successful Rescan replaces them. Ordinary Refresh updates the current listing. Cloud changes can make an index outdated. Duplicate suggestions based on matching names and reported sizes do not prove identical content; the scan never removes items automatically. Review files and maintain backups before requesting deletion. Sorting, appearance and Explorer-style views do not mount cloud accounts in Windows Explorer. Native desktop drag-in/drag-out and continuous background folder synchronization are not included.
 
-## Privacy and credentials
+## Privacy, credentials and software rights
 
-Use of account data is described in the FarooqDrive Privacy Policy. Public source
-code does not include developer credentials, user tokens, signing certificates,
-or passwords. Users and independent deployers must protect credentials they
-configure themselves.
+The Privacy Policy explains local credentials, metadata, diagnostics, history and temporary files. Protect the Windows account and credentials you configure. Public source must not contain user tokens, private signing keys or personal secrets. Repository software licensing and third-party notices are separate from these service terms; those notices remain applicable.
 
-## Warranty and liability
+## Availability and legal rights
 
-The application is provided on an “as is” and “as available” basis to the extent
-permitted by applicable law. Users should verify important operations and keep
-backups. Nothing in these terms excludes rights or liabilities that cannot legally
-be excluded.
+The application is provided as available, without a promise of uninterrupted or error-free operation, to the extent permitted by applicable law. Keep suitable backups and review important operations. Nothing here excludes rights or liabilities that cannot lawfully be excluded. Google and Microsoft names identify compatible services and do not imply affiliation or endorsement.
 
-## Support and changes
-
-Support: support@mymandoob.com  
-Website: https://www.mymandoob.com/farooqdrive/
-
-These terms may be updated when application functionality, distribution, or legal
-requirements change. The latest published version will state its update date.
+Updated terms will be dated and published with the corresponding release. Website: https://www.mymandoob.com/farooqdrive/ . Contact support@mymandoob.com for help.

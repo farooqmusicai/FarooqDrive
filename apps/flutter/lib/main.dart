@@ -546,7 +546,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                     onDownload: _download,
                   ),
                   _FileViews(controller: controller),
-                  if (controller.scanStatus.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), child: Text(controller.scanStatus, style: const TextStyle(fontSize: 12))),
+                  if (controller.scanStatus.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), child: Text('${controller.scanStatus}${controller.indexScannedAt == null ? "" : " Last scan: ${DateFormat('y-MM-dd HH:mm').format(controller.indexScannedAt!)}"}', style: const TextStyle(fontSize: 12))),
                     ])),
                   ),
                   Expanded(child: controller.selectedAccountId == null

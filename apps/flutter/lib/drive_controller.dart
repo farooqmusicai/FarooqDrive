@@ -701,7 +701,6 @@ class DriveController extends ChangeNotifier {
     indexedFiles.removeWhere((item) => item.accountId == accountId);
     paths.remove(accountId);
     if (selectedAccountId == accountId) selectedAccountId = null;
-    indexedFiles.removeWhere((item) => item.accountId == accountId);
     final remainingKeys = indexedFiles.map(keyOf).toSet();
     _exactKeys.removeWhere((key) => !remainingKeys.contains(key));
     _conflictKeys.removeWhere((key) => !remainingKeys.contains(key));

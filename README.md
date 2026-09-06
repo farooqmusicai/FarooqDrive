@@ -1,4 +1,29 @@
-# FarooqDrive Complete Edition
+# FarooqDrive
+
+## Windows 21.1 — Google Drive and Microsoft OneDrive
+
+The `onedrive-foundation` branch provides the Windows update. The owner reported
+that the previous upload/transfer build works. This revision adds saved Light/Dark
+mode, sortable columns across all tabs, and a persistent background scan index.
+The version display stays 21.1 and no longer says Test.
+
+Scan results survive ordinary Refresh, tab changes and app restarts. Rescan all
+builds a replacement while the previous snapshot remains available. Metadata
+matches are duplicate suggestions, not proof of identical contents. File changes
+mark the snapshot outdated. No scan deletes files.
+
+Use the Windows Help for verified-transfer behavior and its limits, including
+retained Google originals and folder containers, 1 GiB transfers, temporary disk
+storage, and separate final confirmation for eligible OneDrive cleanup.
+
+- [Windows Help](docs/USER-HELP.md) · [اردو مدد](docs/USER-HELP-URDU.md)
+- [Privacy](docs/PRIVACY.md) · [Terms](docs/TERMS.md)
+- [Store text and console actions](docs/WINDOWS-21.1-RELEASE-TEXT.md)
+
+The published web/mobile editions and Microsoft Store package are not updated by
+this feature-branch build. Their availability must not be inferred from the
+Windows description below.
+
 
 ## Live Web App
 

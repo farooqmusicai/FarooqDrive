@@ -65,4 +65,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.clipboard, isNull);
   });
+  testWidgets('dark theme keeps all eight views usable and headers sort', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final c = DriveController();
+    addTearDown(c.dispose);
+    c.accounts.add(DriveAccount(id:'g',email:'test@example.invalid',name:'Account',accessToken:'test'));
+    c.selectedAccountId = 'g';
+    c.paths['g'] = const [FolderCrumb('root','My Drive')];
+    c.files.add(const DriveItem(id:'a',name:'Example.txt',mimeType:'text/plain',isFolder:false,accountId:'g',accountEmail:'test@example.invalid',size:3));
+    await tester.pumpWidget(MaterialApp(theme: ThemeData(brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark)),
+      home: FileManagerPage(controller:c)));
+    await tester.pump();
+    expect(find.text('Version 21.1'), findsOneWidget);
+    expect(find.textContaining('Test'), findsNothing);
+    await tester.tap(find.text('Name ↑'));
+    await tester.pump();
+    expect(c.sortAscending,isFalse);
+    await c.setViewMode(FileViewMode.files);
+    await tester.pump();
+    expect(find.text('Name ↓'),findsOneWidget);
+    for (final mode in explorerViewLabels.keys) {
+      c.setLayout(mode);
+      await tester.pump();
+      expect(find.text('Example.txt'),findsWidgets);
+      expect(tester.takeException(),isNull,reason:mode);
+    }
+    expect(find.byTooltip('Switch light / dark mode'),findsOneWidget);
+  });
+
 }
