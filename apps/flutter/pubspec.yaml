@@ -1,5 +1,5 @@
 name: farooqdrive
-description: FarooqDrive multi-account Google Drive file manager.
+description: FarooqDrive multi-account Google Drive and Microsoft OneDrive file manager.
 publish_to: none
 version: 21.1.0+22
 

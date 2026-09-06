@@ -1,104 +1,57 @@
-# Web 21.1 — Google Drive and OneDrive
+# FarooqDrive 21.1
 
-The web update includes the Explorer layouts, Light/Dark mode, remembered sorting, account tooltips, background scan indexes and verified transfers. Browser transfers are limited to 32 MiB per file. [Setup, privacy, limits and release acceptance](docs/WEB-21.1-UPDATE.md). Android, iPhone/iPad and macOS apps are coming soon.
+Your Google Drive and Microsoft OneDrive accounts in one file manager.
 
-# FarooqDrive
+[Open the Web App](https://farooqmusicai.github.io/FarooqDrive/) · [Website](https://www.mymandoob.com/farooqdrive/) · [Help and support](https://www.mymandoob.com/farooqdrive/support.html)
 
-## Windows 21.1 — Google Drive and Microsoft OneDrive
+## Explorer features
 
-The `onedrive-foundation` branch provides the Windows update. The owner reported
-that the previous upload/transfer build works. This revision adds saved Light/Dark
-mode, sortable columns across all tabs, and a persistent background scan index.
-The version display stays 21.1 and no longer says Test.
+- Expand account folders in the left panel; browse with Back, Up and breadcrumbs.
+- Eight views: Extra large, Large, Medium and Small icons, List, Details, Tiles and Content.
+- Saved Light/Dark preference, full account-name/email tooltips, and remembered Name, Account, Size and Modified sorting across tabs.
+- Background duplicate scans with page progress and saved metadata indexes. Continue working during scans; Rescan all refreshes the index. Matching name and size identifies candidates, not proven identical contents. Scans never delete files.
+- Upload, download, new folder, rename, Copy/Paste and internal drag-and-drop. Cut/Move copies and verifies before asking for final source cleanup.
 
-Scan results survive ordinary Refresh, tab changes and app restarts. Rescan all
-builds a replacement while the previous snapshot remains available. Metadata
-matches are duplicate suggestions, not proof of identical contents. File changes
-mark the snapshot outdated. No scan deletes files.
+## Transfer safety and limits
 
-Use the Windows Help for verified-transfer behavior and its limits, including
-retained Google originals and folder containers, 1 GiB transfers, temporary disk
-storage, and separate final confirmation for eligible OneDrive cleanup.
+Destination content is verified with SHA-256 and an extra download before cleanup is offered. Only unchanged OneDrive source files support conditional Recycle Bin cleanup. Google originals and original folder containers remain. Choosing No keeps both copies. Interrupted operations may leave destination copies; no automatic restart resume is available.
+
+| Capability | Windows 21.1 | Web 21.1 |
+| --- | --- | --- |
+| Google Drive and OneDrive | Yes | Yes, browser sign-in setup required |
+| Transfer limit per file | 1 GiB | 32 MiB |
+| Temporary staging | Local disk, not encrypted by FarooqDrive | Browser memory, potentially several buffers |
+| Batch limit | 10,000 items / 64 folder levels | 10,000 items / 64 folder levels |
+| Microsoft account session | Secure local token storage | Memory-only; reconnect after reload |
+| Account count | No fixed app cap | No fixed app cap; browser resources apply |
+| File-storage relay server | None | None |
+
+Provider quotas, tenant consent and browser restrictions apply. Keep the web tab open until a transfer completes. Internal dragging is supported; the app does not mount cloud accounts as Windows drives or implement all Windows Explorer clipboard features.
+
+[Web setup, privacy, limits and acceptance checks](docs/WEB-21.1-UPDATE.md)
+
+## Platforms and source
+
+- **Windows:** `onedrive-foundation` branch. Store packaging/release is a separate step.
+- **Web:** `web-update-21-1` branch. The Pages workflow pins a tested web commit so web updates do not replace the Windows release source.
+- **Android, iPhone/iPad and macOS apps:** coming soon.
+- `apps/flutter`: current application source. `apps/desktop` and `dist`: earlier editions.
+
+Version remains **21.1**. Availability of a source change does not imply a new Microsoft Store submission.
+
+## Setup and credentials
+
+For web OneDrive, the existing Entra registration needs a **Single-page application** redirect at `https://farooqmusicai.github.io/FarooqDrive/microsoft-callback.html`. Keep the Windows `http://localhost` desktop redirect. Delegated permissions are `User.Read` and `Files.ReadWrite`; no client secret belongs in the browser.
+
+Builds use the existing GitHub configuration `FAROOQDRIVE_WEB_CLIENT_ID` for Google and `FAROOQDRIVE_MICROSOFT_CLIENT_ID` for Microsoft. These supply public OAuth application IDs. Never commit client secrets, access/refresh tokens, signing certificates or personal scan data.
+
+Microsoft branding URLs and a logo do not complete publisher verification. Google consent publishing/verification and organization policies still apply. See the [web guide](docs/WEB-21.1-UPDATE.md).
+
+## Help, privacy and release notes
 
 - [Windows Help](docs/USER-HELP.md) · [اردو مدد](docs/USER-HELP-URDU.md)
-- [Privacy](docs/PRIVACY.md) · [Terms](docs/TERMS.md)
-- [Store text and console actions](docs/WINDOWS-21.1-RELEASE-TEXT.md)
+- [Privacy](https://www.mymandoob.com/farooqdrive/privacy.html) · [Terms](https://www.mymandoob.com/farooqdrive/terms.html)
+- [Windows release text](docs/WINDOWS-21.1-RELEASE-TEXT.md)
+- [Earlier Version 19 demonstration](https://www.youtube.com/watch?v=JrCJkNApJtU)
 
-The published web/mobile editions and Microsoft Store package are not updated by
-this feature-branch build. Their availability must not be inferred from the
-Windows description below.
-
-
-## Live Web App
-
-[Open FarooqDrive in your browser](https://farooqmusicai.github.io/FarooqDrive/)
-
-This public GitHub Pages edition is provided for testing the Web application.
-
-## Demo Video
-
-[Watch the FarooqDrive Windows and Web demonstration on YouTube](https://www.youtube.com/watch?v=JrCJkNApJtU)
-
-The video demonstrates FarooqDrive Version 19, Google account connection, the
-unified Drive interface, storage information, and file-management workflow.
-
-## Screenshots
-
-### All Drives — ready to connect
-
-![FarooqDrive All Drives screen](docs/screenshots/farooqdrive-all-drives.png)
-
-### Connected accounts and file management
-
-![FarooqDrive connected Drive screen](docs/screenshots/farooqdrive-connected-drive.png)
-
-FarooqDrive presents multiple Google Drive accounts in one file-manager
-interface. This repository contains:
-
-- `apps/flutter`: cross-platform edition; Web is the first reference platform.
-- `apps/desktop`: standalone Windows 11 desktop edition (Windows 10 best effort).
-- `dist`: install-free web edition.
-- `docs`: Google OAuth, usage, build, publishing, privacy, and troubleshooting.
-
-## Non-negotiable credential rule
-
-This repository contains **no developer or user credential**. Every person who
-builds or deploys FarooqDrive creates their own Google Cloud project and OAuth
-client. Never commit a Client Secret, access token, refresh token, OAuth JSON,
-database, or signing certificate.
-
-## Start here
-
-1. Read [Google OAuth setup](docs/GOOGLE-OAUTH-SETUP.md).
-2. Windows users read the [English guide](docs/WINDOWS-GUIDE.md) or
-   [Urdu guide](docs/WINDOWS-GUIDE-URDU.md).
-3. Web deployers read [Web guide](docs/WEB-GUIDE.md).
-4. Read User Help in [English](docs/USER-HELP.md) or
-   [Urdu](docs/USER-HELP-URDU.md), plus [Troubleshooting](docs/TROUBLESHOOTING.md).
-5. Review Privacy in [English](docs/PRIVACY.md) or
-   [Urdu](docs/PRIVACY-URDU.md), and Terms in [English](docs/TERMS.md) or
-   [Urdu](docs/TERMS-URDU.md).
-
-## Editions
-
-| Capability | Windows | Web |
-| --- | --- | --- |
-| Multiple Google accounts | Yes | Yes, current browser session |
-| Browse Drive folders | Yes | Yes |
-| Upload/download/create folder | Yes | Yes |
-| Rename, move, copy, trash | Yes | Yes |
-| Search, sort, multi-select | Yes | Yes |
-| Unified storage totals | Yes | Yes |
-| Local secrets | Encrypted on the PC | No secret is used |
-| Server storage | None | None |
-
-## Status
-
-Version 21 is a release candidate until the safe Windows startup and responsive update are tested
-and Google OAuth is verified with the
-owner's production domains and the Windows installer is tested on clean Windows
-11 and Windows 10 machines.
-
-Cross-account copy intentionally uses a download-then-upload workflow in this
-release; direct streamed transfer remains on the production checklist. See
-[release status](docs/RELEASE-STATUS.md).
+The app communicates directly with cloud providers. Saved indexes contain file metadata, not file content or OAuth tokens. See platform-specific Help for local storage and cleanup details. Authenticated cloud-operation acceptance must be checked with owner test accounts; CI tests do not prove live tenant consent.

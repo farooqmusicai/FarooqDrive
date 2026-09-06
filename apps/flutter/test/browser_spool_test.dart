@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/transfer_spool_stub.dart';
-import '../lib/cloud_drive_api.dart';
+import 'package:farooqdrive/transfer_spool_stub.dart';
+import 'package:farooqdrive/cloud_drive_api.dart';
 
 void main() {
   test('browser staging hashes content and supports upload ranges then clears', () async {
