@@ -1,5 +1,34 @@
 # FarooqDrive: Windows-first OneDrive implementation
 
+## Duplicate scan repair — 6 September 2026
+
+Owner reported scanning still did not work after several attempts. Code inspection
+confirmed first-scan tab selection, refresh cancellation, excessive per-group event
+loop delays, no Google scan request timeout/page-loop guard, and generic hidden
+failure details. The exact failure on the owner's cloud accounts was not reproduced.
+
+- Tested runtime: `8a63c7cf966f11c315ba549fc68a202e3ec1ec04`; successful run `34057024264`.
+- FarooqDrive-Windows-Installer: artifact `9996329274`, 10672118 bytes; `sha256:c451dc7535c4ce7aaf2ec8a16d4cf8258a453cdfb7d8aa2f8154b7772ebaddf2`.
+- FarooqDrive-Windows-x64: artifact `9996328663`, 12785073 bytes; `sha256:89934c31ddf2177e87a34ea1b3796f3b46636309ff4a5764a4cbb91416331c6d`.
+- Analyze, automated tests, Windows build, portable and installer packaging passed.
+- First duplicate click selects its result view immediately; completion does not
+  override subsequent navigation. Refresh no longer cancels an active scan.
+- OneDrive scans the full paginated root/delta hierarchy instead of per-folder
+  children calls. Last duplicate ID wins; tombstones/root are excluded and a
+  terminal delta link is required. Untrusted/repeated page links remain rejected.
+- Google scan pages time out after 60 seconds, reject repeated tokens/incomplete
+  search and continue through empty intermediate pages. Both providers report
+  items read. Stage/account and safe failure reason appear in status and red info.
+- Matching yields every 250 groups, rather than after every group once a match is
+  found. Previous index remains on failure; no partial scan is labelled complete.
+- Regression tests cover delta pagination/tombstones, truncated results, Google
+  repeated/empty pages, first-scan selection, refresh during scan and saved-index
+  retention with account-specific errors. Version remains 21.1.0+22 / display 21.1.
+- Owner next check: install this build, click Rescan all once, then inspect the
+  duplicate result tab. If it fails, capture the new account/stage message.
+
+
+
 ## Current Windows 21.1 update — 6 September 2026
 
 Owner reported the previous build works. New theme, sorting, persistent background
