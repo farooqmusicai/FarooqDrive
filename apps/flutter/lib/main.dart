@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
@@ -8,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'drive_controller.dart';
+import 'diagnostics.dart';
 import 'google_auth.dart';
 import 'models.dart';
 import 'native_file_icon.dart';
@@ -57,7 +59,21 @@ String _formatCombinedCapacity(Iterable<DriveAccount> accounts) {
   return _formatBytes(total);
 }
 
-void main() => runApp(const FarooqDriveApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    writeDiagnostic('Flutter error: ${details.exception}', details.stack);
+  };
+  ui.PlatformDispatcher.instance.onError = (error, stack) {
+    writeDiagnostic('Unhandled platform error: $error', stack);
+    return true;
+  };
+  runZonedGuarded(
+    () => runApp(const FarooqDriveApp()),
+    (error, stack) => writeDiagnostic('Unhandled async error: $error', stack),
+  );
+}
 
 class FarooqDriveApp extends StatelessWidget {
   const FarooqDriveApp({super.key});

@@ -14,6 +14,11 @@ The installer installs FarooqDrive for the current Windows user, creates a Start
 Menu shortcut, offers an optional desktop shortcut, and supports clean removal
 through Windows Settings.
 
+If the app closes unexpectedly, send the diagnostic file located at
+`%LOCALAPPDATA%\FarooqDrive\farooqdrive-crash.log` to support. The file contains
+technical error details and does not intentionally record OAuth tokens or file
+contents.
+
 ## Builder
 
 Requirements: Windows 10/11 x64, Flutter stable, Visual Studio with Desktop
