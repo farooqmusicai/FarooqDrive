@@ -24,8 +24,8 @@ jobs:
       - name: Verify and apply source patch
         shell: pwsh
         run: |
-          git apply --check .github/patches/file-selection-preview-icons.patch
-          git apply .github/patches/file-selection-preview-icons.patch
+          git apply --check --recount .github/patches/file-selection-preview-icons.patch
+          git apply --recount .github/patches/file-selection-preview-icons.patch
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
