@@ -215,14 +215,6 @@ diff --git a/apps/flutter/lib/main.dart b/apps/flutter/lib/main.dart
                  ],
                ),
              ),
-@@ -613,7 +658,7 @@ class _Sidebar extends StatelessWidget {
-                         ),
-                         Text(
--                          'Version 21.1',
-+                          'Version 21.2 Test',
-                           style: TextStyle(
-                             color: Color(0xff9db5d1),
-                             fontSize: 12,
 @@ -1482,7 +1527,7 @@ class _FileListState extends State<_FileList> {
      final link = item.webViewLink;
      if (link == null || link.isEmpty) {
