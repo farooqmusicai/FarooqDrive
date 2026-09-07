@@ -1,3 +1,16 @@
+# Update — 7 September 2026: browser OneDrive download link repair
+
+Owner reported Copy/Paste from OneDrive to Google failed with `OneDrive browser download URL unavailable.` This locates the failure before Google upload, in source-link resolution; Copy itself only stages the selection.
+
+- Tested candidate: `7546012039066c6b782064a02bf5daa64f045dbe`; passing analyzer/tests/web build run `34085967085`.
+- Browser download now fetches full item metadata instead of relying only on a narrow `$select` annotation projection. If absent, retries the documented `select=id,@microsoft.graph.downloadUrl` form. Missing links still fail safely.
+- Validates file identity and HTTPS URL; never sends the Graph token to content storage. Native Windows download route unchanged.
+- Regression tests cover missing annotation fallback, wrong item/unsafe URL rejection, token isolation, OneDrive-to-Google upload and SHA-256 verification, and corruption rejection. These use simulated provider responses; owner cloud transfer retest is required.
+- Main deployment pin updated in commit `7816fccf18114a8d107cf50837a90d49ed716cdc`. Confirm latest Pages run and release.json before asking owner to retest. Version stays 21.1, browser 32 MiB limit, final Move Yes/No retained.
+- Do not claim this proves the owner's full transfer works until they confirm it. No new permission/secret or Store release was introduced.
+
+---
+
 # FarooqDrive project memory — resume 7 September 2026
 
 Read this checkpoint before changing code. User: Mohammad Farooq; assistant: Zain. Communicate in Pakistani Urdu script. Continue authorized work without repeated permission prompts. Keep official icon and version 21.1; no secrets in GitHub. This file is durable project context, not a claim of writing ChatGPT account memory.
