@@ -1,0 +1,254 @@
+diff --git a/apps/flutter/lib/google_drive_api.dart b/apps/flutter/lib/google_drive_api.dart
+--- a/apps/flutter/lib/google_drive_api.dart
++++ b/apps/flutter/lib/google_drive_api.dart
+@@ -19,6 +19,22 @@ class GoogleDriveApi extends CloudDriveApi {
+   static const _api = 'https://www.googleapis.com/drive/v3';
+   static const _upload = 'https://www.googleapis.com/upload/drive/v3';
+ 
++  @override
++  Future<String?> thumbnailUrl(DriveAccount account, DriveItem item) async {
++    if (item.isFolder) return null;
++    final uri = Uri.parse('$_api/files/${Uri.encodeComponent(item.id)}').replace(
++      queryParameters: const {'fields': 'thumbnailLink'},
++    );
++    final data = await _json(account, uri.toString());
++    final link = data['thumbnailLink'];
++    if (link is! String || link.isEmpty) return null;
++    final parsed = Uri.tryParse(link);
++    if (parsed == null || parsed.scheme != 'https' || parsed.host.isEmpty ||
++        parsed.userInfo.isNotEmpty) {
++      return null;
++    }
++    return link;
++  }
++
+   @override
+   Future<TransferSnapshot> snapshot(DriveAccount account, String id) async {
+     final data = await _json(account, '$_api/files/${Uri.encodeComponent(id)}?fields=id,name,mimeType,size,modifiedTime,parents,ownedByMe,capabilities(canDownload),version,trashed');
+diff --git a/apps/flutter/lib/onedrive_api.dart b/apps/flutter/lib/onedrive_api.dart
+--- a/apps/flutter/lib/onedrive_api.dart
++++ b/apps/flutter/lib/onedrive_api.dart
+@@ -96,6 +96,26 @@ class OneDriveApi extends CloudDriveApi {
+       ownedByMe: !remote, location: 'OneDrive');
+   }
+ 
++  @override
++  Future<String?> thumbnailUrl(DriveAccount account, DriveItem item) async {
++    if (item.isFolder) return null;
++    final data = await _json(
++      account,
++      Uri.parse('$_base/me/drive/${_item(item.id)}/thumbnails'),
++    );
++    final values = data['value'];
++    if (values is! List || values.isEmpty || values.first is! Map) return null;
++    final set = values.first as Map;
++    for (final size in const ['large', 'medium', 'small']) {
++      final candidate = set[size];
++      final link = candidate is Map ? candidate['url'] : null;
++      if (link is! String || link.isEmpty) continue;
++      final parsed = Uri.tryParse(link);
++      if (parsed != null && parsed.scheme == 'https' && parsed.host.isNotEmpty &&
++          parsed.userInfo.isEmpty) {
++        return link;
++      }
++    }
++    return null;
++  }
++
+   @override
+   Future<List<DriveItem>> listFolder(DriveAccount account, String folderId) async {
+     Uri? uri = Uri.parse('$_base/me/drive/${_item(folderId)}/children').replace(queryParameters: {
+diff --git a/apps/flutter/lib/drive_controller.dart b/apps/flutter/lib/drive_controller.dart
+--- a/apps/flutter/lib/drive_controller.dart
++++ b/apps/flutter/lib/drive_controller.dart
+@@ -48,6 +48,7 @@ class DriveController extends ChangeNotifier {
+   final Map<String, int> folderSizes = {};
+   final List<ActivityEntry> activityLog = [];
+   final List<_NavigationState> _navigationHistory = [];
++  DriveItem? _detachedSelection;
+ 
+   String? selectedAccountId;
+   String webClientId = '';
+@@ -185,11 +186,29 @@ class DriveController extends ChangeNotifier {
+       for (final item in files) keyOf(item): item,
+       for (final item in indexedFiles) keyOf(item): item,
+     };
++    final detached = _detachedSelection;
++    if (detached != null) available[keyOf(detached)] = detached;
+     return selectedKeys.map((key) => available[key]).whereType<DriveItem>().toList();
+   }
+ 
++  Future<Uint8List> previewBytes(DriveItem item) async {
++    final account = accountById(item.accountId);
++    if (account == null) {
++      throw const DriveApiException('The account for this preview is no longer connected.');
++    }
++    return apiFor(account).downloadBytes(account, item);
++  }
++
++  Future<String?> previewThumbnailUrl(DriveItem item) async {
++    final account = accountById(item.accountId);
++    if (account == null) return null;
++    return apiFor(account).thumbnailUrl(account, item);
++  }
++
+   List<DriveItem> matchingItemsFor(FileViewMode mode) {
+     final normalized = query
+         .trim()
+@@ -468,6 +487,7 @@ class DriveController extends ChangeNotifier {
+       files.addAll(groups[index].map((item) => item.copyWithLocation(location)));
+     }
+     selectedKeys.clear();
++    _detachedSelection = null;
+   }
+ 
+   Future<void> openFolder(DriveItem item) => _guard(() async {
+@@ -524,13 +544,25 @@ class DriveController extends ChangeNotifier {
+   }
+ 
+   void toggle(DriveItem item, bool value) {
++    final detached = _detachedSelection;
++    if (detached != null && keyOf(detached) != keyOf(item)) {
++      selectedKeys.remove(keyOf(detached));
++      _detachedSelection = null;
++    } else if (!value && detached != null && keyOf(detached) == keyOf(item)) {
++      _detachedSelection = null;
++    }
+     value ? selectedKeys.add(keyOf(item)) : selectedKeys.remove(keyOf(item));
+     notifyListeners();
+   }
+ 
+   void toggleAll(bool value) {
++    _detachedSelection = null;
+     value
+         ? selectedKeys.addAll(visibleFiles.map(keyOf))
+         : selectedKeys.removeAll(visibleFiles.map(keyOf));
+@@ -561,6 +593,7 @@ class DriveController extends ChangeNotifier {
+     final scan = value == FileViewMode.exactDuplicates || value == FileViewMode.nameConflicts;
+     viewMode = value;
+     selectedKeys.clear();
++    _detachedSelection = null;
+     notifyListeners();
+     if (scan && !indexReady) await _buildGlobalIndex();
+   }
+@@ -690,6 +723,7 @@ class DriveController extends ChangeNotifier {
+   }
+ 
+   void selectOnly(DriveItem item) {
++    _detachedSelection = item;
+     selectedKeys
+       ..clear()
+       ..add(keyOf(item));
+diff --git a/apps/flutter/lib/main.dart b/apps/flutter/lib/main.dart
+--- a/apps/flutter/lib/main.dart
++++ b/apps/flutter/lib/main.dart
+@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
+ 
+ import 'drive_controller.dart';
++import 'file_preview.dart';
+ import 'diagnostics.dart';
+ import 'google_auth.dart';
+ import 'models.dart';
+@@ -328,6 +329,31 @@ class _FileManagerPageState extends State<FileManagerPage> {
+     }
+   }
+ 
++  Future<void> _openPreviewItem(DriveItem item) async {
++    if (item.isFolder) return;
++    final link = item.webViewLink;
++    if (link == null || link.isEmpty) {
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          const SnackBar(content: Text('The cloud provider did not provide an open link.')),
++        );
++      }
++      return;
++    }
++    final opened = await launchUrl(
++      Uri.parse(link),
++      mode: LaunchMode.platformDefault,
++      webOnlyWindowName: '_blank',
++    );
++    if (opened) await controller.recordFileOpened(item);
++    if (!opened && mounted) {
++      ScaffoldMessenger.of(context).showSnackBar(
++        const SnackBar(content: Text('The file could not be opened. Allow pop-ups and try again.')),
++      );
++    }
++  }
++
+   Future<void> _showActivityLog() async {
+     await showDialog<void>(
+       context: context,
+@@ -613,7 +639,7 @@ class _Sidebar extends StatelessWidget {
+                         ),
+                         Text(
+-                          'Version 21.1',
++                          'Version 21.2 Test',
+                           style: TextStyle(
+                             color: Color(0xff9db5d1),
+                             fontSize: 12,
+@@ -554,9 +580,28 @@ class _FileManagerPageState extends State<FileManagerPage> {
+                   if (controller.scanStatus.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), child: Text('${controller.scanStatus}${controller.indexScannedAt == null ? "" : " Last scan: ${DateFormat('y-MM-dd HH:mm').format(controller.indexScannedAt!)}"}', style: const TextStyle(fontSize: 12))),
+                     ])),
+                   ),
+-                  Expanded(child: controller.selectedAccountId == null
+-                    ? _FileList(controller: controller)
+-                    : CloudDropTarget(controller: controller, accountId: controller.selectedAccountId!,
+-                        path: List.of(controller.currentPath), child: _FileList(controller: controller))),
++                  Expanded(child: LayoutBuilder(builder: (context, constraints) {
++                    final selection = controller.selectedItems;
++                    final preview = selection.length == 1 && !selection.single.isFolder
++                        ? selection.single
++                        : null;
++                    final list = controller.selectedAccountId == null
++                        ? _FileList(controller: controller)
++                        : CloudDropTarget(controller: controller,
++                            accountId: controller.selectedAccountId!,
++                            path: List.of(controller.currentPath),
++                            child: _FileList(controller: controller));
++                    if (preview == null || constraints.maxWidth < 900) return list;
++                    final previewWidth =
++                        (constraints.maxWidth * .30).clamp(300.0, 420.0).toDouble();
++                    return Row(children: [
++                      Expanded(child: list),
++                      VerticalDivider(width: 1, color: Theme.of(context).colorScheme.outlineVariant),
++                      SizedBox(width: previewWidth, child: FilePreview(
++                        controller: controller,
++                        item: preview,
++                        onOpen: () => _openPreviewItem(preview),
++                      )),
++                    ]);
++                  })),
+                 ],
+               ),
+             ),
+@@ -1482,7 +1527,7 @@ class _FileListState extends State<_FileList> {
+     final link = item.webViewLink;
+     if (link == null || link.isEmpty) {
+       if (context.mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+-          const SnackBar(content: Text('Google Drive did not provide an open link.')),
++          const SnackBar(content: Text('The cloud provider did not provide an open link.')),
+         );
+       }
+       return;
+@@ -1806,7 +1851,8 @@ class _FileListState extends State<_FileList> {
+                           message: '${item.location} / ${item.name}',
+                           waitDuration: const Duration(milliseconds: 350),
+                           child: InkWell(
+-                            onTap: () => _openItem(context, item),
++                            onTap: () => controller.selectOnly(item),
++                            onDoubleTap: () => _openItem(context, item),
+                             child: Padding(
+                               padding: const EdgeInsets.symmetric(vertical: 6),
+                               child: Column(
+@@ -1958,7 +2004,7 @@ class _FileListState extends State<_FileList> {
+                     item,
+                     !controller.selectedKeys.contains(controller.keyOf(item)),
+                   ),
+-                  onLongPress: () => _openItem(context, item),
++                  onLongPress: () => controller.selectOnly(item),
+                 ),
+                 const Divider(height: 1),
+               ],
