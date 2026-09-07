@@ -1,3 +1,13 @@
+# Owner acceptance — 7 September 2026
+
+Owner retried the deployed OneDrive-to-Google Web Copy/Paste repair and explicitly confirmed: "yes working,,Good". This is owner-reported live Copy/Paste acceptance; the assistant did not operate authenticated cloud files. Do not start a duplicate investigation for the same missing-download-link error without a new failing example.
+
+Fix runtime: `7546012039066c6b782064a02bf5daa64f045dbe`. CI `34085967085` and Pages `34086119311` passed. Live release.json and Flutter index were checked after deployment. Narrow metadata projection did not supply the required download annotation; full metadata with a documented select fallback resolved the reported case.
+
+Coverage: simulated source-link lookup/fallback, URL/file validation, no Graph token on content requests, OneDrive→Google byte upload plus SHA-256 verification, corruption rejection; existing controller tests cover Move Yes/No/dismissal, changed revisions and corruption. No new assistant-run live Move/deletion test. Browser 32 MiB cap, final confirmation, retained Google originals/folder containers remain. Google OAuth demo rejection email requirements still need the actual email text before prescribing the recording script.
+
+---
+
 # Update — 7 September 2026: browser OneDrive download link repair
 
 Owner reported Copy/Paste from OneDrive to Google failed with `OneDrive browser download URL unavailable.` This locates the failure before Google upload, in source-link resolution; Copy itself only stages the selection.
