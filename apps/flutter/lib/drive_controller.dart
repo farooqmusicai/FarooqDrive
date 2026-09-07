@@ -263,6 +263,11 @@ class DriveController extends ChangeNotifier {
   int get folderCount => matchingItemsFor(FileViewMode.folders).length;
   int get allItemCount => matchingItemsFor(FileViewMode.all).length;
 
+  void _startInitialIndexIfNeeded() {
+    if (accounts.isEmpty || indexReady || indexing || _disposed) return;
+    unawaited(_buildGlobalIndex());
+  }
+
   Future<void> initialize() async {
     loading = true;
     operationMessage = 'Restoring cloud accounts…';
@@ -307,6 +312,7 @@ class DriveController extends ChangeNotifier {
         selectedAccountId = accounts.first.id;
         await _refreshQuotas();
         await _loadFiles();
+        _startInitialIndexIfNeeded();
       }
     } catch (exception) {
       error = 'Saved accounts could not be restored: $exception';
@@ -360,6 +366,7 @@ class DriveController extends ChangeNotifier {
     await _loadFiles();
     if (kIsWeb) await restoreSavedIndex();
     await _recordActivity('Microsoft OneDrive connected', added.email, accountEmail: added.email);
+    _startInitialIndexIfNeeded();
   }, message: 'Signing in to Microsoft…');
 
   Future<void> saveClientSecret(String value) async {
@@ -407,6 +414,7 @@ class DriveController extends ChangeNotifier {
           added.email,
           accountEmail: added.email,
         );
+        _startInitialIndexIfNeeded();
       });
 
   Future<void> selectAccount(String? id) => _guard(() async {

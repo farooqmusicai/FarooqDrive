@@ -599,6 +599,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                       )),
                     ]);
                   })),
+                  _SelectionStatusBar(controller: controller),
                 ],
               ),
             ),
@@ -663,6 +664,47 @@ class _HelpSection extends StatelessWidget {
           ],
         ),
       );
+}
+
+class _SelectionStatusBar extends StatelessWidget {
+  const _SelectionStatusBar({required this.controller});
+  final DriveController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = controller.selectedItems;
+    String text;
+    if (selected.length == 1) {
+      final item = selected.single;
+      final location = item.location
+          .split(' / ')
+          .where((part) => part.trim().isNotEmpty)
+          .join(r'\');
+      text = '${item.accountEmail} \\ $location${location.isEmpty ? '' : r'\'}${item.name}';
+    } else if (selected.isEmpty) {
+      text = 'No file selected';
+    } else {
+      text = '${selected.length} items selected';
+    }
+    final theme = Theme.of(context);
+    return Container(
+      height: 30,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SelectableText(
+          text,
+          maxLines: 1,
+          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
 }
 
 class _Sidebar extends StatelessWidget {

@@ -133,6 +133,9 @@ class _TreeChildrenState extends State<_TreeChildren> {
   );
   Widget _row(BuildContext context, DriveItem item) {
     final path = [...widget.path, FolderCrumb(item.id, item.name)];
+    final locatedItem = item.copyWithLocation(
+      widget.path.map((crumb) => crumb.name).join(' / '),
+    );
     final row = Padding(padding: EdgeInsets.only(left: (widget.path.length * 9).clamp(0, 45).toDouble()),
       child: Row(children: [
         if (item.isFolder) SizedBox(width: 22, child: IconButton(padding: EdgeInsets.zero, iconSize: 16,
@@ -146,7 +149,7 @@ class _TreeChildrenState extends State<_TreeChildren> {
             if (item.isFolder) {
               await widget.controller.navigateTree(widget.account.id, path);
             } else {
-              widget.controller.selectOnly(item);
+              widget.controller.selectOnly(locatedItem);
             }
           },
           onDoubleTap: widget.controller.loading || item.isFolder ? null : () async {
