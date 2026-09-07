@@ -180,14 +180,6 @@ diff --git a/apps/flutter/lib/main.dart b/apps/flutter/lib/main.dart
    Future<void> _showActivityLog() async {
      await showDialog<void>(
        context: context,
-@@ -613,7 +639,7 @@ class _Sidebar extends StatelessWidget {
-                         ),
-                         Text(
--                          'Version 21.1',
-+                          'Version 21.2 Test',
-                           style: TextStyle(
-                             color: Color(0xff9db5d1),
-                             fontSize: 12,
 @@ -554,9 +580,28 @@ class _FileManagerPageState extends State<FileManagerPage> {
                    if (controller.scanStatus.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), child: Text('${controller.scanStatus}${controller.indexScannedAt == null ? "" : " Last scan: ${DateFormat('y-MM-dd HH:mm').format(controller.indexScannedAt!)}"}', style: const TextStyle(fontSize: 12))),
                      ])),
@@ -223,6 +215,14 @@ diff --git a/apps/flutter/lib/main.dart b/apps/flutter/lib/main.dart
                  ],
                ),
              ),
+@@ -613,7 +658,7 @@ class _Sidebar extends StatelessWidget {
+                         ),
+                         Text(
+-                          'Version 21.1',
++                          'Version 21.2 Test',
+                           style: TextStyle(
+                             color: Color(0xff9db5d1),
+                             fontSize: 12,
 @@ -1482,7 +1527,7 @@ class _FileListState extends State<_FileList> {
      final link = item.webViewLink;
      if (link == null || link.isEmpty) {
