@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import 'drive_controller.dart';
 import 'models.dart';
@@ -25,10 +26,13 @@ class FilePreview extends StatefulWidget {
 
 class _FilePreviewState extends State<FilePreview> {
   static const _maxImageBytes = 20 * 1024 * 1024;
+  static const _maxPdfBytes = 32 * 1024 * 1024;
   static const _maxTextBytes = 2 * 1024 * 1024;
   static const _maxTextCharacters = 250000;
 
+  final ScrollController _textScrollController = ScrollController();
   Uint8List? _imageBytes;
+  Uint8List? _pdfBytes;
   String? _text;
   String? _thumbnailUrl;
   String? _message;
@@ -46,11 +50,22 @@ class _FilePreviewState extends State<FilePreview> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.id != widget.item.id ||
         oldWidget.item.accountId != widget.item.accountId) {
+      if (_textScrollController.hasClients) _textScrollController.jumpTo(0);
       _load();
     }
   }
 
+  @override
+  void dispose() {
+    _textScrollController.dispose();
+    super.dispose();
+  }
+
   bool get _isImage => widget.item.mimeType.toLowerCase().startsWith('image/');
+  bool get _isPdf => widget.item.mimeType.toLowerCase() == 'application/pdf' ||
+      widget.item.name.toLowerCase().endsWith('.pdf');
+  bool get _isMarkdown => widget.item.name.toLowerCase().endsWith('.md') ||
+      widget.item.mimeType.toLowerCase().contains('markdown');
 
   bool get _isText {
     final mime = widget.item.mimeType.toLowerCase();
@@ -61,6 +76,7 @@ class _FilePreviewState extends State<FilePreview> {
         mime.contains('yaml') ||
         mime.contains('javascript') ||
         mime.contains('typescript') ||
+        mime.contains('markdown') ||
         name.endsWith('.md') ||
         name.endsWith('.txt') ||
         name.endsWith('.csv') ||
@@ -84,6 +100,7 @@ class _FilePreviewState extends State<FilePreview> {
     if (mounted) {
       setState(() {
         _imageBytes = null;
+        _pdfBytes = null;
         _text = null;
         _thumbnailUrl = null;
         _message = null;
@@ -94,15 +111,23 @@ class _FilePreviewState extends State<FilePreview> {
 
     final size = widget.item.size;
     final loadImage = _isImage && size != null && size <= _maxImageBytes;
+    final loadPdf = _isPdf && size != null && size <= _maxPdfBytes;
     final loadText = _isText && size != null && size <= _maxTextBytes;
 
-    if (loadImage || loadText) {
+    if (loadImage || loadPdf || loadText) {
       try {
         final bytes = await widget.controller.previewBytes(widget.item);
         if (!mounted || request != _request) return;
         if (loadImage) {
           setState(() {
             _imageBytes = bytes;
+            _loading = false;
+          });
+          return;
+        }
+        if (loadPdf) {
+          setState(() {
+            _pdfBytes = bytes;
             _loading = false;
           });
           return;
@@ -132,7 +157,9 @@ class _FilePreviewState extends State<FilePreview> {
       setState(() {
         _thumbnailUrl = thumbnail;
         _loading = false;
-        if (_isText && size != null && size > _maxTextBytes) {
+        if (_isPdf && size != null && size > _maxPdfBytes) {
+          _message = 'PDF preview is limited to 32 MB; a provider thumbnail is shown when available.';
+        } else if (_isText && size != null && size > _maxTextBytes) {
           _message = 'Text preview is limited to 2 MB so selecting a large file stays fast.';
         } else if (_isImage && size != null && size > _maxImageBytes) {
           _message = 'This image is larger than 20 MB; the provider thumbnail is shown when available.';
@@ -218,6 +245,12 @@ class _FilePreviewState extends State<FilePreview> {
   Widget _previewBody() {
     final theme = Theme.of(context);
     if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_pdfBytes != null) {
+      return PdfViewer.data(
+        _pdfBytes!,
+        sourceName: widget.item.name,
+      );
+    }
     if (_imageBytes != null) {
       return InteractiveViewer(
         minScale: 0.5,
@@ -230,10 +263,21 @@ class _FilePreviewState extends State<FilePreview> {
     }
     if (_text != null) {
       return Scrollbar(
+        controller: _textScrollController,
+        thumbVisibility: true,
         child: SingleChildScrollView(
+          controller: _textScrollController,
+          primary: false,
           padding: const EdgeInsets.all(12),
-          child: SelectableText(_text!,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.35)),
+          child: SelectableText(
+            _text!,
+            style: TextStyle(
+              fontFamily: _isMarkdown ? null : 'Consolas',
+              fontSize: _isMarkdown ? 13.5 : 12.5,
+              height: 1.4,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
         ),
       );
     }
