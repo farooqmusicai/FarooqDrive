@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:farooqdrive/cloud_drive_api.dart';
 import 'package:farooqdrive/models.dart';
 import 'package:farooqdrive/onedrive_api.dart';
+import 'package:farooqdrive/google_drive_api.dart';
+import 'package:farooqdrive/verified_transfer.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -66,6 +68,55 @@ void main() {
     await expectLater(api.openTransfer(account, item), throwsA(isA<DriveApiException>()));
     expect(calls, 2);
   });
+
+  for (final corrupt in [false, true]) {
+    test('OneDrive browser to Google verifies actual bytes; corrupt=$corrupt', () async {
+      final google = DriveAccount(id: 'google:test', email: 'target@example.invalid',
+          name: 'Target', accessToken: 'google-token');
+      var uploaded = false;
+      final client = MockClient((request) async {
+        expect(request.method, isNot('DELETE'));
+        if (request.url.host == 'graph.microsoft.com') {
+          return http.Response(jsonEncode({'id':'file1', 'name':'demo.txt',
+            'size':3, 'eTag':'revision1', 'file':{'mimeType':'text/plain'},
+            '@microsoft.graph.downloadUrl':'https://content.example.invalid/demo'}), 200);
+        }
+        if (request.url.host == 'content.example.invalid') {
+          expect(request.headers.containsKey('Authorization'), isFalse);
+          return http.Response('abc', 200);
+        }
+        expect(request.url.host, 'www.googleapis.com');
+        expect(request.headers['Authorization'], 'Bearer google-token');
+        if (request.method == 'POST') {
+          return http.Response('', 200, headers:{'location':'https://www.googleapis.com/upload/drive/v3/files?upload_id=test'});
+        }
+        if (request.method == 'PUT') {
+          expect(request.bodyBytes, [97,98,99]);
+          uploaded = true;
+          return http.Response('{"id":"target1"}', 200);
+        }
+        expect(uploaded, isTrue);
+        if (request.url.queryParameters['alt'] == 'media') {
+          return http.Response(corrupt ? 'xyz' : 'abc', 200);
+        }
+        return http.Response(jsonEncode({'id':'target1','name':'demo.txt',
+          'mimeType':'text/plain','size':'3','version':'1','parents':['root']}), 200);
+      });
+      addTearDown(client.close);
+      final sourceApi = OneDriveApi(tokenResolver: token, client: client, browserDownloads: true);
+      final targetApi = GoogleDriveApi(client: client);
+      final transfer = VerifiedTransfer((a) => a.id == account.id ? sourceApi : targetApi, (_) {}, () {});
+      final run = transfer.run([(account,item)], google, 'root');
+      if (corrupt) {
+        await expectLater(run, throwsA(isA<DriveApiException>()));
+        expect(transfer.copies, isEmpty);
+      } else {
+        await run;
+        expect(transfer.copies.length, 1);
+        expect(transfer.copies.single.copy.item.id, 'target1');
+      }
+    });
+  }
 
   for (final data in [
     {'id':'different','@microsoft.graph.downloadUrl':'https://content.example.invalid/demo'},
