@@ -600,6 +600,9 @@ class DriveController extends ChangeNotifier {
     }
   }
 
+  Future<Uint8List> previewBytes(DriveItem item) =>
+      api.downloadBytes(accountById(item.accountId)!, item);
+
   Future<void> paste() => _guard(() async {
         final clip = clipboard;
         final destination = selectedAccount;

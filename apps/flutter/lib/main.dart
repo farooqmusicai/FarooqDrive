@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'drive_controller.dart';
+import 'file_preview.dart';
 import 'diagnostics.dart';
 import 'google_auth.dart';
 import 'models.dart';
@@ -610,7 +611,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 21.1 Test',
+                          'Version 21.2 Test',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,
@@ -641,6 +642,11 @@ class _Sidebar extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               _DriveTile(
+                leading: const NativeFileIcon(
+                  fileName: 'All Drives',
+                  isFolder: true,
+                  size: 24,
+                ),
                 title: 'All Drives',
                 subtitle: 'Unified view',
                 quota: controller.totalStorageLimit == null
@@ -660,6 +666,11 @@ class _Sidebar extends StatelessWidget {
                 child: ListView(
                   children: controller.accounts
                       .map((account) => _DriveTile(
+                            leading: NativeFileIcon(
+                              fileName: account.name,
+                              isFolder: true,
+                              size: 24,
+                            ),
                             title: account.name,
                             subtitle: account.email,
                             subtitleColor:
@@ -768,6 +779,7 @@ class _DriveTile extends StatelessWidget {
     required this.subtitle,
     required this.selected,
     required this.onTap,
+    this.leading,
     this.subtitleColor,
     this.quota,
     this.onDisconnect,
@@ -776,6 +788,7 @@ class _DriveTile extends StatelessWidget {
   final String subtitle;
   final bool selected;
   final VoidCallback onTap;
+  final Widget? leading;
   final Color? subtitleColor;
   final String? quota;
   final VoidCallback? onDisconnect;
@@ -785,6 +798,7 @@ class _DriveTile extends StatelessWidget {
         selected: selected,
         selectedTileColor: const Color(0xff203a57),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: leading,
         title: Text(title,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1556,10 +1570,19 @@ class _FileListState extends State<_FileList> {
       clipBehavior: Clip.antiAlias,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final tableWidth = requiredWidth > constraints.maxWidth
-              ? requiredWidth
+          final previewItem = controller.selectedItems.length == 1
+              ? controller.selectedItems.single
+              : null;
+          final showPreview = previewItem != null &&
+              !previewItem.isFolder &&
+              constraints.maxWidth >= 900;
+          final listWidth = showPreview
+              ? constraints.maxWidth - 340
               : constraints.maxWidth;
-          return Scrollbar(
+          final tableWidth = requiredWidth > listWidth
+              ? requiredWidth
+              : listWidth;
+          final table = Scrollbar(
             controller: _horizontalScroll,
             thumbVisibility: true,
             notificationPredicate: (notification) => notification.depth == 1,
@@ -1629,7 +1652,8 @@ class _FileListState extends State<_FileList> {
                           message: '${item.location} / ${item.name}',
                           waitDuration: const Duration(milliseconds: 350),
                           child: InkWell(
-                            onTap: () => _openItem(context, item),
+                            onTap: () => controller.selectOnly(item),
+                            onDoubleTap: () => _openItem(context, item),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Column(
@@ -1791,11 +1815,7 @@ class _FileListState extends State<_FileList> {
                       ),
                     ],
                   ),
-                  onTap: () => controller.toggle(
-                    item,
-                    !controller.selectedKeys.contains(controller.keyOf(item)),
-                  ),
-                  onLongPress: () => _openItem(context, item),
+                  onTap: () => controller.selectOnly(item),
                 ),
                 const Divider(height: 1),
               ],
@@ -1804,6 +1824,22 @@ class _FileListState extends State<_FileList> {
                 ),
               ),
             ),
+          );
+          if (!showPreview) return table;
+          return Row(
+            children: [
+              Expanded(child: table),
+              const VerticalDivider(width: 1),
+              SizedBox(
+                width: 339,
+                height: constraints.maxHeight,
+                child: FilePreview(
+                  controller: controller,
+                  item: previewItem,
+                  onOpen: () => _openItem(context, previewItem),
+                ),
+              ),
+            ],
           );
         },
       ),

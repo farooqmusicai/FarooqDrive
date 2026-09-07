@@ -60,6 +60,7 @@ class DriveItem {
     this.size,
     this.modifiedTime,
     this.webViewLink,
+    this.thumbnailLink,
     this.parents = const [],
     this.canDownload = true,
     this.ownedByMe = false,
@@ -74,6 +75,7 @@ class DriveItem {
   final int? size;
   final DateTime? modifiedTime;
   final String? webViewLink;
+  final String? thumbnailLink;
   final List<String> parents;
   final bool canDownload;
   final bool ownedByMe;
@@ -90,6 +92,7 @@ class DriveItem {
         size: size,
         modifiedTime: modifiedTime,
         webViewLink: webViewLink,
+        thumbnailLink: thumbnailLink,
         parents: parents,
         canDownload: canDownload,
         ownedByMe: ownedByMe,
@@ -109,6 +112,7 @@ class DriveItem {
         size: int.tryParse('${json['size'] ?? ''}'),
         modifiedTime: DateTime.tryParse('${json['modifiedTime'] ?? ''}'),
         webViewLink: json['webViewLink'] as String?,
+        thumbnailLink: json['thumbnailLink'] as String?,
         parents: (json['parents'] as List?)?.cast<String>() ?? const [],
         canDownload:
             (json['capabilities'] as Map?)?['canDownload'] as bool? ?? true,
