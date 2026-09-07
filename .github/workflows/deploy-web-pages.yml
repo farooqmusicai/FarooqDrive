@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           # Tested web source; Windows and Store source is released separately.
-          ref: e1996e90a66c51a87ca6ff9e38d02893a52c9283
+          ref: 7546012039066c6b782064a02bf5daa64f045dbe
       - uses: actions/setup-node@v4
         with:
           node-version: 22
