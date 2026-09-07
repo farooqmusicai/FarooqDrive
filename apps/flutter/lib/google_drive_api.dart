@@ -23,6 +23,23 @@ class GoogleDriveApi extends CloudDriveApi {
   static const _upload = 'https://www.googleapis.com/upload/drive/v3';
 
   @override
+  Future<String?> thumbnailUrl(DriveAccount account, DriveItem item) async {
+    if (item.isFolder) return null;
+    final uri = Uri.parse('$_api/files/${Uri.encodeComponent(item.id)}').replace(
+      queryParameters: const {'fields': 'thumbnailLink'},
+    );
+    final data = await _json(account, uri.toString());
+    final link = data['thumbnailLink'];
+    if (link is! String || link.isEmpty) return null;
+    final parsed = Uri.tryParse(link);
+    if (parsed == null || parsed.scheme != 'https' || parsed.host.isEmpty ||
+        parsed.userInfo.isNotEmpty) {
+      return null;
+    }
+    return link;
+  }
+
+  @override
   Future<TransferSnapshot> snapshot(DriveAccount account, String id) async {
     final data = await _json(account, '$_api/files/${Uri.encodeComponent(id)}?fields=id,name,mimeType,size,modifiedTime,parents,ownedByMe,capabilities(canDownload),version,trashed');
     if (data['trashed'] == true || data['version'] == null) throw const DriveApiException('Source unavailable or version missing.');

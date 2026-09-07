@@ -107,6 +107,29 @@ class OneDriveApi extends CloudDriveApi {
   }
 
   @override
+  Future<String?> thumbnailUrl(DriveAccount account, DriveItem item) async {
+    if (item.isFolder) return null;
+    final data = await _json(
+      account,
+      Uri.parse('$_base/me/drive/${_item(item.id)}/thumbnails'),
+    );
+    final values = data['value'];
+    if (values is! List || values.isEmpty || values.first is! Map) return null;
+    final set = values.first as Map;
+    for (final size in const ['large', 'medium', 'small']) {
+      final candidate = set[size];
+      final link = candidate is Map ? candidate['url'] : null;
+      if (link is! String || link.isEmpty) continue;
+      final parsed = Uri.tryParse(link);
+      if (parsed != null && parsed.scheme == 'https' && parsed.host.isNotEmpty &&
+          parsed.userInfo.isEmpty) {
+        return link;
+      }
+    }
+    return null;
+  }
+
+  @override
   Future<List<DriveItem>> listFolder(DriveAccount account, String folderId) async {
     Uri? uri = Uri.parse('$_base/me/drive/${_item(folderId)}/children').replace(queryParameters: {
       r'$top': '200', r'$select': 'id,name,size,folder,file,parentReference,lastModifiedDateTime,webUrl,remoteItem,package',

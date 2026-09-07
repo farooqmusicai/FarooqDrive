@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'drive_controller.dart';
+import 'file_preview.dart';
 import 'diagnostics.dart';
 import 'google_auth.dart';
 import 'models.dart';
@@ -328,6 +329,30 @@ class _FileManagerPageState extends State<FileManagerPage> {
     }
   }
 
+  Future<void> _openPreviewItem(DriveItem item) async {
+    if (item.isFolder) return;
+    final link = item.webViewLink;
+    if (link == null || link.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('The cloud provider did not provide an open link.')),
+        );
+      }
+      return;
+    }
+    final opened = await launchUrl(
+      Uri.parse(link),
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
+    if (opened) await controller.recordFileOpened(item);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The file could not be opened. Allow pop-ups and try again.')),
+      );
+    }
+  }
+
   Future<void> _showActivityLog() async {
     await showDialog<void>(
       context: context,
@@ -550,10 +575,30 @@ class _FileManagerPageState extends State<FileManagerPage> {
                   if (controller.scanStatus.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), child: Text('${controller.scanStatus}${controller.indexScannedAt == null ? "" : " Last scan: ${DateFormat('y-MM-dd HH:mm').format(controller.indexScannedAt!)}"}', style: const TextStyle(fontSize: 12))),
                     ])),
                   ),
-                  Expanded(child: controller.selectedAccountId == null
-                    ? _FileList(controller: controller)
-                    : CloudDropTarget(controller: controller, accountId: controller.selectedAccountId!,
-                        path: List.of(controller.currentPath), child: _FileList(controller: controller))),
+                  Expanded(child: LayoutBuilder(builder: (context, constraints) {
+                    final selection = controller.selectedItems;
+                    final preview = selection.length == 1 && !selection.single.isFolder
+                        ? selection.single
+                        : null;
+                    final list = controller.selectedAccountId == null
+                        ? _FileList(controller: controller)
+                        : CloudDropTarget(controller: controller,
+                            accountId: controller.selectedAccountId!,
+                            path: List.of(controller.currentPath),
+                            child: _FileList(controller: controller));
+                    if (preview == null || constraints.maxWidth < 900) return list;
+                    final previewWidth =
+                        (constraints.maxWidth * .30).clamp(300.0, 420.0).toDouble();
+                    return Row(children: [
+                      Expanded(child: list),
+                      VerticalDivider(width: 1, color: Theme.of(context).colorScheme.outlineVariant),
+                      SizedBox(width: previewWidth, child: FilePreview(
+                        controller: controller,
+                        item: preview,
+                        onOpen: () => _openPreviewItem(preview),
+                      )),
+                    ]);
+                  })),
                 ],
               ),
             ),
@@ -1487,7 +1532,7 @@ class _FileListState extends State<_FileList> {
     if (link == null || link.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Google Drive did not provide an open link.')),
+          const SnackBar(content: Text('The cloud provider did not provide an open link.')),
         );
       }
       return;
@@ -1794,7 +1839,8 @@ class _FileListState extends State<_FileList> {
                           message: '${item.location} / ${item.name}',
                           waitDuration: const Duration(milliseconds: 350),
                           child: InkWell(
-                            onTap: () => _openItem(context, item),
+                            onTap: () => controller.selectOnly(item),
+                            onDoubleTap: () => _openItem(context, item),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Column(
@@ -1960,7 +2006,7 @@ class _FileListState extends State<_FileList> {
                     item,
                     !controller.selectedKeys.contains(controller.keyOf(item)),
                   ),
-                  onLongPress: () => _openItem(context, item),
+                  onLongPress: () => controller.selectOnly(item),
                 ),
                 const Divider(height: 1),
               ],
