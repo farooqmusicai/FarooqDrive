@@ -11,8 +11,11 @@ typedef MicrosoftTokenResolver = Future<String> Function(DriveAccount account, {
 
 /// Native drive operations. Transfer cleanup uses an explicit ETag precondition.
 class OneDriveApi extends CloudDriveApi {
-  OneDriveApi({required MicrosoftTokenResolver tokenResolver, http.Client? client})
-      : _tokenResolver = tokenResolver, _client = client ?? http.Client();
+  OneDriveApi({required MicrosoftTokenResolver tokenResolver, http.Client? client,
+      bool browserDownloads = kIsWeb})
+      : _tokenResolver = tokenResolver, _client = client ?? http.Client(),
+        _browserDownloads = browserDownloads;
+  final bool _browserDownloads;
   final MicrosoftTokenResolver _tokenResolver;
   final http.Client _client;
   static const _base = 'https://graph.microsoft.com/v1.0';
@@ -243,16 +246,39 @@ class OneDriveApi extends CloudDriveApi {
   @override
   Future<TransferDownload> openTransfer(DriveAccount account, DriveItem item) async {
     if (item.isFolder || !item.canDownload) throw const DriveApiException('This OneDrive item cannot be downloaded.');
-    if (kIsWeb) {
-      final data = await _json(account,Uri.parse('$_base/me/drive/${_item(item.id)}').replace(queryParameters:{r'$select':'id,@microsoft.graph.downloadUrl'}));
-      final location=data['@microsoft.graph.downloadUrl'] as String?;
-      if(location==null) throw const DriveApiException('OneDrive browser download URL unavailable.');
-      final uri=Uri.parse(location);
-      if(uri.scheme!='https' || uri.userInfo.isNotEmpty || uri.port!=443) throw const DriveApiException('Invalid OneDrive download URL.');
-      // Preauthorized content URL: no Graph bearer header, avoiding /content CORS redirects.
-      final response=await _client.send(http.Request('GET',uri)).timeout(const Duration(seconds:60));
-      if(response.statusCode!=200) throw const DriveApiException('OneDrive browser download failed.');
-      return TransferDownload(item.name,item.mimeType,response.stream,item.size);
+    if (_browserDownloads) {
+      final itemUri = Uri.parse('$_base/me/drive/${_item(item.id)}');
+      // Download URLs are instance annotations. A narrow $select projection
+      // can omit the annotation on personal OneDrive responses. Read the full
+      // item first; then try Microsoft's documented JavaScript select form.
+      var data = await _json(account, itemUri);
+      var location = data['@microsoft.graph.downloadUrl'];
+      if (location is! String || location.isEmpty) {
+        data = await _json(account, itemUri.replace(queryParameters: {
+          'select': 'id,@microsoft.graph.downloadUrl',
+        }));
+        location = data['@microsoft.graph.downloadUrl'];
+      }
+      if (data['id'] != item.id) {
+        throw const DriveApiException('OneDrive returned a different file. Transfer stopped; source retained.');
+      }
+      if (location is! String || location.isEmpty) {
+        throw const DriveApiException('Microsoft did not provide a browser download link for this item. Try a regular TXT, image or PDF file; check download access in OneDrive. Source retained.');
+      }
+      final uri = Uri.tryParse(location);
+      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
+          uri.userInfo.isNotEmpty || uri.port != 443 || uri.hasFragment) {
+        throw const DriveApiException('Invalid OneDrive download URL. Source retained.');
+      }
+      // Fresh, preauthorized content URL. Never forward the Graph bearer token
+      // or use the authenticated /content redirect from browser JavaScript.
+      final response = await _client.send(http.Request('GET', uri))
+          .timeout(const Duration(seconds: 60));
+      if (response.statusCode != 200) {
+        await response.stream.drain<void>();
+        throw DriveApiException('OneDrive browser download failed (${response.statusCode}). Retry to obtain a fresh link. Source retained.', statusCode: response.statusCode);
+      }
+      return TransferDownload(item.name, item.mimeType, response.stream, item.size);
     }
     final metadata = await _get(account, Uri.parse('$_base/me/drive/${_item(item.id)}/content'));
     final location = metadata.headers['location'];
