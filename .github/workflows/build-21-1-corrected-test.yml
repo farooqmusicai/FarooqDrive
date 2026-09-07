@@ -1,3 +1,4 @@
+# Retry after preserving the exact Version 21.1 UI regression contract.
 name: Build FarooqDrive 21.2 Corrected Test
 
 on:
