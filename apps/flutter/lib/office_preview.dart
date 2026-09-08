@@ -111,8 +111,7 @@ OfficePreviewData _parseXlsx(Archive archive) {
       final relationId = sheet.attributes
           .where((attribute) => attribute.name.local == 'id')
           .map((attribute) => attribute.value)
-          .cast<String?>()
-          .firstWhere((value) => value != null, orElse: () => null);
+          .firstOrNull;
       final path = relationId == null ? null : relationships[relationId];
       if (path != null) sheets.add((title, path));
     }
