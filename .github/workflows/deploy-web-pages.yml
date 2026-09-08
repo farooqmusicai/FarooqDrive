@@ -3,10 +3,11 @@ name: Deploy Web Edition to GitHub Pages
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [web-update-21-1]
     paths:
       - "apps/flutter/**"
       - ".github/workflows/deploy-web-pages.yml"
+      - "README.md"
 
 permissions:
   contents: read
@@ -25,6 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and test Microsoft browser authentication
+        working-directory: apps/flutter/web-auth
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          node --test auth.test.mjs
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -45,7 +55,7 @@ jobs:
         run: flutter test
       - name: Build GitHub Pages edition
         working-directory: apps/flutter
-        run: flutter build web --release --base-href /FarooqDrive/ --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
+        run: flutter build web --release --base-href /FarooqDrive/ --dart-define=MICROSOFT_WEB_CLIENT_ID=${{ secrets.FAROOQDRIVE_MICROSOFT_CLIENT_ID }} --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
