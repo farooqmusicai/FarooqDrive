@@ -1,0 +1,90 @@
+name: Build FarooqDrive 21.2 Office Preview Test
+
+on:
+  push:
+    branches:
+      - fix/21-1-office-preview-safe
+    paths:
+      - '.github/workflows/build-21-2-office-preview-test.yml'
+      - 'apps/flutter/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Office preview test branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/21-1-office-preview-safe
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Windows runner
+        working-directory: apps/flutter
+        shell: pwsh
+        run: |
+          flutter create --platforms=windows .
+          if (Test-Path test/widget_test.dart) { Remove-Item test/widget_test.dart }
+
+      - name: Restore official app icon
+        working-directory: apps/flutter
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes('assets/FarooqDrive.png', [Convert]::FromBase64String((Get-Content 'assets/FarooqDrive.png.base64' -Raw)))
+          magick assets/FarooqDrive.png -define icon:auto-resize=256,128,64,48,32,24,16 windows/runner/resources/app_icon.ico
+
+      - name: Install packages
+        working-directory: apps/flutter
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: apps/flutter
+        run: flutter analyze
+
+      - name: Test all regressions including Office preview
+        working-directory: apps/flutter
+        run: flutter test
+
+      - name: Build Windows Office preview test
+        working-directory: apps/flutter
+        env:
+          MICROSOFT_CLIENT_ID: ${{ secrets.FAROOQDRIVE_MICROSOFT_CLIENT_ID }}
+          GOOGLE_CLIENT_ID: ${{ secrets.FAROOQDRIVE_DESKTOP_CLIENT_ID }}
+        run: flutter build windows --release "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=$env:GOOGLE_CLIENT_ID" "--dart-define=MICROSOFT_DESKTOP_CLIENT_ID=$env:MICROSOFT_CLIENT_ID"
+
+      - name: Package portable Office preview test
+        shell: pwsh
+        run: Compress-Archive -Path apps/flutter/build/windows/x64/runner/Release/* -DestinationPath FarooqDrive-Windows-x64-v21.2.2-Office-Preview-Test.zip
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build one-click Office preview test installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path apps/flutter/release | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=21.2.2" "apps/flutter/installer/FarooqDrive.iss"
+
+      - name: Upload portable Office preview test
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarooqDrive-Windows-x64-v21.2.2-Office-Preview-Test
+          path: FarooqDrive-Windows-x64-v21.2.2-Office-Preview-Test.zip
+          if-no-files-found: error
+
+      - name: Upload one-click Office preview test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarooqDrive-Windows-Installer-v21.2.2-Office-Preview-Test
+          path: apps/flutter/release/FarooqDrive-Setup-v21.2.2-Windows-x64.exe
+          if-no-files-found: error
