@@ -48,10 +48,11 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.FAROOQDRIVE_DESKTOP_CLIENT_ID }}
           MICROSOFT_CLIENT_ID: ${{ secrets.FAROOQDRIVE_MICROSOFT_CLIENT_ID }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:GOOGLE_CLIENT_ID)) { throw 'Missing Google desktop client configuration.' }
+          if ([string]::IsNullOrWhiteSpace($env:GOOGLE_CLIENT_ID)) { Write-Host 'Google uses the approved user-configured Desktop Client ID and Secret in Settings.' }
           if ([string]::IsNullOrWhiteSpace($env:MICROSOFT_CLIENT_ID)) { throw 'Missing Microsoft desktop client configuration.' }
           flutter build windows --release "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=$env:GOOGLE_CLIENT_ID" "--dart-define=MICROSOFT_DESKTOP_CLIENT_ID=$env:MICROSOFT_CLIENT_ID"
           if ($LASTEXITCODE -ne 0) { throw 'Windows release build failed.' }
+          (-not [string]::IsNullOrWhiteSpace($env:GOOGLE_CLIENT_ID)).ToString() | Set-Content build/google-build-config-present.txt
           (Get-FileHash build/windows/x64/runner/Release/data/app.so -Algorithm SHA256).Hash | Set-Content build/app-before-msix.sha256
       - name: Create unsigned Store MSIX
         working-directory: apps/flutter
@@ -106,7 +107,9 @@ jobs:
             sha256 = (Get-FileHash "release-output/$filename" -Algorithm SHA256).Hash
             configuredBuildPayloadPreserved = $true
             unsignedForStore = $true
-            googleAndMicrosoftBuildConfigurationPresent = $true
+            googleBuildClientIdPresent = [bool]::Parse((Get-Content apps/flutter/build/google-build-config-present.txt -Raw).Trim())
+            googleDesktopConfiguration = 'Existing approved Settings flow: Desktop Client ID and matching Secret'
+            microsoftBuildClientIdPresent = $true
             makeAppxValidation = 'passed'
             windowsAppCertificationKit = 'not run'
             partnerCenterValidation = 'pending user upload'
