@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - ".github/workflows/deploy-web-pages.yml"
+      - "README.md"
 
 permissions:
   contents: read
@@ -23,12 +26,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Tested web source; Windows and Store source is released separately.
-          ref: 7546012039066c6b782064a02bf5daa64f045dbe
+          # Hands-on approved 21.1-preserved source. Web build CI passed on this commit.
+          ref: 5ab9753b3f14da21c9d5b2c163f980ca83356a34
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build Microsoft browser authentication
+      - name: Build and test Microsoft browser authentication
         working-directory: apps/flutter/web-auth
         run: |
           npm ci --no-audit --no-fund
@@ -57,7 +60,7 @@ jobs:
         run: flutter build web --release --base-href /FarooqDrive/ --dart-define=MICROSOFT_WEB_CLIENT_ID=${{ secrets.FAROOQDRIVE_MICROSOFT_CLIENT_ID }} --dart-define=GOOGLE_CLIENT_ID=${{ secrets.FAROOQDRIVE_WEB_CLIENT_ID }}
       - name: Record deployed source
         working-directory: apps/flutter
-        run: python3 -c 'import json, subprocess; open("build/web/release.json", "w").write(json.dumps({"version":"21.1","source":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),"webTransferLimitMiB":32}))'
+        run: python3 -c 'import json, subprocess; open("build/web/release.json", "w").write(json.dumps({"version":"21.1","validatedFeatureSet":"21.2.2-test","source":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),"webTransferLimitMiB":32,"preview":"pdf-text-office-safe"}))'
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
