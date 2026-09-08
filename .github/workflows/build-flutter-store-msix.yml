@@ -3,10 +3,13 @@ name: Build FarooqDrive Microsoft Store MSIX
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, release/store-21-1-approved-20260908]
     paths:
       - 'apps/flutter/**'
       - '.github/workflows/build-flutter-store-msix.yml'
+
+permissions:
+  contents: read
 
 jobs:
   build-store-msix:
@@ -40,18 +43,78 @@ jobs:
         run: flutter test
       - name: Build Windows release
         working-directory: apps/flutter
-        run: flutter build windows --release --dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.FAROOQDRIVE_DESKTOP_CLIENT_ID }}
+        shell: pwsh
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.FAROOQDRIVE_DESKTOP_CLIENT_ID }}
+          MICROSOFT_CLIENT_ID: ${{ secrets.FAROOQDRIVE_MICROSOFT_CLIENT_ID }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:GOOGLE_CLIENT_ID)) { throw 'Missing Google desktop client configuration.' }
+          if ([string]::IsNullOrWhiteSpace($env:MICROSOFT_CLIENT_ID)) { throw 'Missing Microsoft desktop client configuration.' }
+          flutter build windows --release "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=$env:GOOGLE_CLIENT_ID" "--dart-define=MICROSOFT_DESKTOP_CLIENT_ID=$env:MICROSOFT_CLIENT_ID"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows release build failed.' }
+          (Get-FileHash build/windows/x64/runner/Release/data/app.so -Algorithm SHA256).Hash | Set-Content build/app-before-msix.sha256
       - name: Create unsigned Store MSIX
         working-directory: apps/flutter
-        run: dart run msix:create
-      - name: Collect Store package
+        run: dart run msix:create --store --build-windows false --sign-msix false --install-certificate false
+      - name: Validate and collect Store package
         shell: pwsh
         run: |
-          $package = Get-ChildItem -Path apps/flutter/build/windows -Recurse -Filter *.msix | Select-Object -First 1
-          if (-not $package) { throw 'MSIX package was not generated.' }
-          Copy-Item $package.FullName FarooqDrive-Microsoft-Store-v21.1.0.0-x64.msix
+          $ErrorActionPreference = 'Stop'
+          $packages = @(Get-ChildItem apps/flutter/build/windows -Recurse -Filter *.msix)
+          if ($packages.Count -ne 1) { throw "Expected exactly one MSIX; found $($packages.Count)." }
+          $package = $packages[0]
+          $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/makeappx.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $makeappx) { throw 'Windows SDK MakeAppx is unavailable.' }
+          & $makeappx.FullName unpack /p $package.FullName /d "$env:RUNNER_TEMP/store-unpacked" /o
+          if ($LASTEXITCODE -ne 0) { throw 'MakeAppx package validation/unpack failed.' }
+          [xml]$manifest = Get-Content "$env:RUNNER_TEMP/store-unpacked/AppxManifest.xml" -Raw
+          $config = @{}
+          $inConfig = $false
+          foreach ($line in Get-Content apps/flutter/pubspec.yaml) {
+            if ($line -eq 'msix_config:') { $inConfig = $true; continue }
+            if ($inConfig -and $line -match '^  ([a-z_]+):\s*(.+)$') { $config[$Matches[1]] = $Matches[2].Trim() }
+          }
+          $identity = $manifest.Package.Identity
+          if ($identity.Name -cne $config.identity_name) { throw 'Identity name mismatch.' }
+          if ($identity.Publisher -cne $config.publisher) { throw 'Publisher mismatch.' }
+          if ($identity.Version -cne $config.msix_version) { throw 'Version mismatch.' }
+          if ($identity.ProcessorArchitecture -cne $config.architecture -or $identity.ProcessorArchitecture -ne 'x64') { throw 'Architecture mismatch.' }
+          if ($manifest.Package.Properties.PublisherDisplayName -cne $config.publisher_display_name) { throw 'Publisher display name mismatch.' }
+          if ($manifest.Package.Properties.DisplayName -cne $config.display_name) { throw 'Display name mismatch.' }
+          if ([version]::Parse($identity.Version).Revision -ne 0) { throw 'Store version revision must be zero.' }
+          $app = Get-ChildItem "$env:RUNNER_TEMP/store-unpacked" -Recurse -Filter app.so | Select-Object -First 1
+          $expectedHash = (Get-Content apps/flutter/build/app-before-msix.sha256 -Raw).Trim()
+          if (-not $app -or (Get-FileHash $app.FullName -Algorithm SHA256).Hash -ne $expectedHash) { throw 'Packaged app differs from configured Windows build.' }
+          if (Test-Path "$env:RUNNER_TEMP/store-unpacked/AppxSignature.p7x") { throw 'Expected unsigned Store submission package.' }
+          $application = $manifest.Package.Applications.Application | Select-Object -First 1
+          $exe = Join-Path "$env:RUNNER_TEMP/store-unpacked" $application.Executable
+          if (-not (Test-Path $exe)) { throw 'Manifest executable does not exist.' }
+          $filename = "FarooqDrive-Microsoft-Store-v$($identity.Version)-x64.msix"
+          New-Item -ItemType Directory -Force release-output | Out-Null
+          Copy-Item $package.FullName "release-output/$filename"
+          Copy-Item "$env:RUNNER_TEMP/store-unpacked/AppxManifest.xml" release-output/AppxManifest.xml
+          Copy-Item apps/flutter/pubspec.lock release-output/pubspec.lock
+          $report = [ordered]@{
+            sourceCommit = $env:GITHUB_SHA
+            approvedBase = '3bb25984fa5953fac86672f681773bc9e97b7168'
+            identity = [string]$identity.Name
+            publisher = [string]$identity.Publisher
+            publisherDisplayName = [string]$manifest.Package.Properties.PublisherDisplayName
+            version = [string]$identity.Version
+            architecture = [string]$identity.ProcessorArchitecture
+            executable = [string]$application.Executable
+            sha256 = (Get-FileHash "release-output/$filename" -Algorithm SHA256).Hash
+            configuredBuildPayloadPreserved = $true
+            unsignedForStore = $true
+            googleAndMicrosoftBuildConfigurationPresent = $true
+            makeAppxValidation = 'passed'
+            windowsAppCertificationKit = 'not run'
+            partnerCenterValidation = 'pending user upload'
+          }
+          $report | ConvertTo-Json | Set-Content release-output/validation.json
+          $report | ConvertTo-Json
       - uses: actions/upload-artifact@v4
         with:
-          name: FarooqDrive-Microsoft-Store-v21.1-test
-          path: FarooqDrive-Microsoft-Store-v21.1.0.0-x64.msix
+          name: FarooqDrive-Microsoft-Store-v21.1.0.0-x64
+          path: release-output/*
           if-no-files-found: error
