@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'drive_controller.dart';
 import 'models.dart';
+import 'native_file_icon.dart';
 
 const explorerViewLabels = <String, String>{
   'extraLarge': 'Extra large icons',
@@ -132,18 +133,30 @@ class _TreeChildrenState extends State<_TreeChildren> {
   );
   Widget _row(BuildContext context, DriveItem item) {
     final path = [...widget.path, FolderCrumb(item.id, item.name)];
+    final locatedItem = item.copyWithLocation(
+      widget.path.map((crumb) => crumb.name).join(' / '),
+    );
     final row = Padding(padding: EdgeInsets.only(left: (widget.path.length * 9).clamp(0, 45).toDouble()),
       child: Row(children: [
         if (item.isFolder) SizedBox(width: 22, child: IconButton(padding: EdgeInsets.zero, iconSize: 16,
           color: Colors.white70, onPressed: () => setState(() { expanded.contains(item.id) ? expanded.remove(item.id) : expanded.add(item.id); }),
           icon: Icon(expanded.contains(item.id) ? Icons.expand_more : Icons.chevron_right)))
         else const SizedBox(width: 22),
-        Icon(item.isFolder ? Icons.folder : Icons.insert_drive_file_outlined, size: 16, color: item.isFolder ? Colors.amber : Colors.white60),
+        NativeFileIcon(fileName: item.name, isFolder: item.isFolder, size: 16),
         const SizedBox(width: 4),
         Expanded(child: Tooltip(message: item.name, child: InkWell(
           onTap: widget.controller.loading ? null : () async {
-            if (item.isFolder) { await widget.controller.navigateTree(widget.account.id, path); }
-            else if (item.webViewLink != null) { await launchUrl(Uri.parse(item.webViewLink!)); }
+            if (item.isFolder) {
+              await widget.controller.navigateTree(widget.account.id, path);
+            } else {
+              widget.controller.selectOnly(locatedItem);
+            }
+          },
+          onDoubleTap: widget.controller.loading || item.isFolder ? null : () async {
+            final link = item.webViewLink;
+            if (link == null || link.isEmpty) return;
+            final opened = await launchUrl(Uri.parse(link), mode: LaunchMode.platformDefault, webOnlyWindowName: '_blank');
+            if (opened) await widget.controller.recordFileOpened(item);
           },
           child: Padding(padding: const EdgeInsets.symmetric(vertical: 7), child: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Colors.white70, fontSize: 12)))))),

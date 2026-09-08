@@ -55,6 +55,7 @@ class DriveController extends ChangeNotifier {
   final Map<String, int> folderSizes = {};
   final List<ActivityEntry> activityLog = [];
   final List<_NavigationState> _navigationHistory = [];
+  DriveItem? _detachedSelection;
 
   String? selectedAccountId;
   String webClientId = '';
@@ -181,7 +182,23 @@ class DriveController extends ChangeNotifier {
       for (final item in files) keyOf(item): item,
       for (final item in indexedFiles) keyOf(item): item,
     };
+    final detached = _detachedSelection;
+    if (detached != null) available[keyOf(detached)] = detached;
     return selectedKeys.map((key) => available[key]).whereType<DriveItem>().toList();
+  }
+
+  Future<Uint8List> previewBytes(DriveItem item) async {
+    final account = accountById(item.accountId);
+    if (account == null) {
+      throw const DriveApiException('The account for this preview is no longer connected.');
+    }
+    return apiFor(account).downloadBytes(account, item);
+  }
+
+  Future<String?> previewThumbnailUrl(DriveItem item) async {
+    final account = accountById(item.accountId);
+    if (account == null) return null;
+    return apiFor(account).thumbnailUrl(account, item);
   }
 
   List<DriveItem> matchingItemsFor(FileViewMode mode) {
@@ -246,6 +263,11 @@ class DriveController extends ChangeNotifier {
   int get folderCount => matchingItemsFor(FileViewMode.folders).length;
   int get allItemCount => matchingItemsFor(FileViewMode.all).length;
 
+  void _startInitialIndexIfNeeded() {
+    if (accounts.isEmpty || indexReady || indexing || _disposed) return;
+    unawaited(_buildGlobalIndex());
+  }
+
   Future<void> initialize() async {
     loading = true;
     operationMessage = 'Restoring cloud accounts…';
@@ -290,6 +312,7 @@ class DriveController extends ChangeNotifier {
         selectedAccountId = accounts.first.id;
         await _refreshQuotas();
         await _loadFiles();
+        _startInitialIndexIfNeeded();
       }
     } catch (exception) {
       error = 'Saved accounts could not be restored: $exception';
@@ -343,6 +366,7 @@ class DriveController extends ChangeNotifier {
     await _loadFiles();
     if (kIsWeb) await restoreSavedIndex();
     await _recordActivity('Microsoft OneDrive connected', added.email, accountEmail: added.email);
+    _startInitialIndexIfNeeded();
   }, message: 'Signing in to Microsoft…');
 
   Future<void> saveClientSecret(String value) async {
@@ -390,6 +414,7 @@ class DriveController extends ChangeNotifier {
           added.email,
           accountEmail: added.email,
         );
+        _startInitialIndexIfNeeded();
       });
 
   Future<void> selectAccount(String? id) => _guard(() async {
@@ -463,6 +488,7 @@ class DriveController extends ChangeNotifier {
       files.addAll(groups[index].map((item) => item.copyWithLocation(location)));
     }
     selectedKeys.clear();
+    _detachedSelection = null;
   }
 
   Future<void> openFolder(DriveItem item) => _guard(() async {
@@ -516,11 +542,19 @@ class DriveController extends ChangeNotifier {
   }
 
   void toggle(DriveItem item, bool value) {
+    final detached = _detachedSelection;
+    if (detached != null && keyOf(detached) != keyOf(item)) {
+      selectedKeys.remove(keyOf(detached));
+      _detachedSelection = null;
+    } else if (!value && detached != null && keyOf(detached) == keyOf(item)) {
+      _detachedSelection = null;
+    }
     value ? selectedKeys.add(keyOf(item)) : selectedKeys.remove(keyOf(item));
     notifyListeners();
   }
 
   void toggleAll(bool value) {
+    _detachedSelection = null;
     value
         ? selectedKeys.addAll(visibleFiles.map(keyOf))
         : selectedKeys.removeAll(visibleFiles.map(keyOf));
@@ -554,6 +588,7 @@ class DriveController extends ChangeNotifier {
     final scan = value == FileViewMode.exactDuplicates || value == FileViewMode.nameConflicts;
     viewMode = value;
     selectedKeys.clear();
+    _detachedSelection = null;
     notifyListeners();
     if (scan && !indexReady) await _buildGlobalIndex();
   }
@@ -693,6 +728,7 @@ class DriveController extends ChangeNotifier {
   }
 
   void selectOnly(DriveItem item) {
+    _detachedSelection = item;
     selectedKeys
       ..clear()
       ..add(keyOf(item));

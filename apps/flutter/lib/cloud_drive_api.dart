@@ -32,6 +32,7 @@ abstract class CloudDriveApi {
       throw const DriveApiException('Streaming upload is unavailable.');
   Future<void> trashUnchanged(DriveAccount account, TransferSnapshot source) async =>
       throw const DriveApiException('Conditional Trash is unavailable. Source retained.');
+  Future<String?> thumbnailUrl(DriveAccount account, DriveItem item) async => null;
   CloudProviderType get providerType;
   String get rootFolderId;
   String get rootFolderLabel;

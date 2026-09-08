@@ -29,6 +29,39 @@ class OneDriveApi extends CloudDriveApi {
 
   static String _item(String id) => id == 'root' ? 'root' : 'items/${Uri.encodeComponent(id)}';
 
+  static String _safeUploadName(String original) {
+    var value = original
+        .trim()
+        .replaceAll(RegExp(r'["*:<>?/\\|#%]'), '_')
+        .replaceAll(RegExp(r'[\u0000-\u001f]'), '_');
+    while (value.endsWith('.') || value.endsWith(' ')) {
+      value = value.substring(0, value.length - 1).trimRight();
+    }
+    if (value.isEmpty) value = 'Untitled';
+    final lower = value.toLowerCase();
+    final dot = lower.indexOf('.');
+    final stem = (dot < 0 ? lower : lower.substring(0, dot)).toUpperCase();
+    final reserved = stem == 'CON' ||
+        stem == 'PRN' ||
+        stem == 'AUX' ||
+        stem == 'NUL' ||
+        RegExp(r'^COM[0-9]$').hasMatch(stem) ||
+        RegExp(r'^LPT[0-9]$').hasMatch(stem);
+    if (reserved || lower == '.lock' || lower == 'desktop.ini' ||
+        lower.startsWith(r'~$') || lower.contains('_vti_')) {
+      value = '_$value';
+    }
+    if (value.length > 180) {
+      final extensionIndex = value.lastIndexOf('.');
+      final extension = extensionIndex > 0 && value.length - extensionIndex <= 20
+          ? value.substring(extensionIndex)
+          : '';
+      final baseLimit = 180 - extension.length;
+      value = '${value.substring(0, baseLimit)}$extension';
+    }
+    return value;
+  }
+
   DriveApiException _failure(http.Response response, String action) {
     var code = '';
     try {
@@ -104,6 +137,29 @@ class OneDriveApi extends CloudDriveApi {
       parents: [if (parent?['id'] is String) parent!['id'] as String],
       webViewLink: data['webUrl'] as String?, canDownload: file != null && !remote,
       ownedByMe: !remote, location: 'OneDrive');
+  }
+
+  @override
+  Future<String?> thumbnailUrl(DriveAccount account, DriveItem item) async {
+    if (item.isFolder) return null;
+    final data = await _json(
+      account,
+      Uri.parse('$_base/me/drive/${_item(item.id)}/thumbnails'),
+    );
+    final values = data['value'];
+    if (values is! List || values.isEmpty || values.first is! Map) return null;
+    final set = values.first as Map;
+    for (final size in const ['large', 'medium', 'small']) {
+      final candidate = set[size];
+      final link = candidate is Map ? candidate['url'] : null;
+      if (link is! String || link.isEmpty) continue;
+      final parsed = Uri.tryParse(link);
+      if (parsed != null && parsed.scheme == 'https' && parsed.host.isNotEmpty &&
+          parsed.userInfo.isEmpty) {
+        return link;
+      }
+    }
+    return null;
   }
 
   @override
@@ -302,8 +358,9 @@ class OneDriveApi extends CloudDriveApi {
       String name, String mimeType, int length,
       Future<Uint8List> Function(int, int) readRange) async {
     if (length < 0 || length > 1024 * 1024 * 1024) throw const DriveApiException('Private transfer limit is 1 GiB per file.');
+    final safeName = _safeUploadName(name);
     if (length <= 4 * 1024 * 1024) {
-      final uri = Uri.parse('$_base/me/drive/${_item(parentId)}:/${Uri.encodeComponent(name)}:/content')
+      final uri = Uri.parse('$_base/me/drive/${_item(parentId)}:/${Uri.encodeComponent(safeName)}:/content')
           .replace(queryParameters: {'@microsoft.graph.conflictBehavior': 'rename'});
       for (var attempt = 0; attempt < 2; attempt++) {
         final request = http.Request('PUT', uri)..followRedirects = false
@@ -316,8 +373,8 @@ class OneDriveApi extends CloudDriveApi {
       }
       throw const DriveApiException('OneDrive sign-in could not be renewed. Reconnect the account.');
     }
-    final data = await _write(account, 'POST', '${_item(parentId)}:/${Uri.encodeComponent(name)}:/createUploadSession',
-      body: {'item': {'name': name, '@microsoft.graph.conflictBehavior': 'rename'}});
+    final data = await _write(account, 'POST', '${_item(parentId)}:/${Uri.encodeComponent(safeName)}:/createUploadSession',
+      body: {'item': {'name': safeName, '@microsoft.graph.conflictBehavior': 'rename'}});
     final uri = Uri.parse(data['uploadUrl'] as String);
     if (uri.scheme != 'https' || uri.userInfo.isNotEmpty || uri.port != 443) throw const DriveApiException('Unexpected upload session URL.');
     var offset = 0;
