@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_file_info/flutter_file_info.dart';
+import 'windows_icon_reader.dart';
 
 class NativeFileIcon extends StatefulWidget {
   const NativeFileIcon({
@@ -47,21 +46,8 @@ class _NativeFileIconState extends State<NativeFileIcon> {
             : '<file>';
     return _cache.putIfAbsent(extension, () async {
       try {
-        final root = Directory(
-          '${Directory.systemTemp.path}\\FarooqDriveIconCache',
-        );
-        await root.create(recursive: true);
         final suffix = extension.startsWith('<') ? '' : '.$extension';
-        final path = widget.isFolder
-            ? '${root.path}\\folder'
-            : '${root.path}\\sample$suffix';
-        if (widget.isFolder) {
-          await Directory(path).create(recursive: true);
-        } else if (!await File(path).exists()) {
-          await File(path).writeAsBytes(const []);
-        }
-        final info = await FileInfo.instance.getFileIconInfo(path);
-        return info?.pixelData;
+        return readWindowsTypeIcon(suffix, isFolder: widget.isFolder);
       } catch (_) {
         return null;
       }

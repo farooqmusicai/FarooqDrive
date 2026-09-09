@@ -24,7 +24,9 @@ class GoogleAccountAuthorizer {
   static const scopes = <String>[
     'openid', 'email', 'profile', 'https://www.googleapis.com/auth/drive',
   ];
-  static const _storage = FlutterSecureStorage();
+  static const _storage = FlutterSecureStorage(
+    wOptions: WindowsOptions(useBackwardCompatibility: false),
+  );
   static const _accountIndexKey = 'farooqdrive.desktop.accounts';
   static const _clientSecretKey = 'farooqdrive.desktop.clientSecret';
 

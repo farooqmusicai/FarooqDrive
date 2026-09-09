@@ -16,7 +16,9 @@ class MicrosoftAccountAuthorizer {
     FlutterSecureStorage? storage, Future<bool> Function(Uri)? openBrowser,
     this.callbackTimeout = const Duration(minutes: 5),
   }) : _client = client ?? http.Client(),
-       _storage = storage ?? const FlutterSecureStorage(),
+       _storage = storage ?? const FlutterSecureStorage(
+         wOptions: WindowsOptions(useBackwardCompatibility: false),
+       ),
        _openBrowser = openBrowser ?? _launch;
 
   static const buildClientId = String.fromEnvironment('MICROSOFT_DESKTOP_CLIENT_ID');

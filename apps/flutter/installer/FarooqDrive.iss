@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "21.1.0"
+  #define AppVersion "21.2.0"
 #endif
 
 #ifndef BuildRoot
@@ -48,6 +48,14 @@ Source: "{#BuildRoot}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 [Icons]
 Name: "{group}\FarooqDrive"; Filename: "{app}\farooqdrive.exe"
 Name: "{autodesktop}\FarooqDrive"; Filename: "{app}\farooqdrive.exe"; Tasks: desktopicon
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{localappdata}\FarooqDrive\UserData"
+Type: files; Name: "{localappdata}\FarooqDrive\farooqdrive-crash.log"
+Type: files; Name: "{userappdata}\com.example\farooqdrive\shared_preferences.json"
+Type: files; Name: "{userappdata}\com.example\farooqdrive\flutter_secure_storage.dat"
+Type: filesandordirs; Name: "{localappdata}\Temp\FarooqDrive-transfers"
+Type: filesandordirs; Name: "{localappdata}\Temp\FarooqDriveIconCache"
 
 [Run]
 Filename: "{app}\farooqdrive.exe"; Description: "Launch FarooqDrive"; Flags: nowait postinstall skipifsilent

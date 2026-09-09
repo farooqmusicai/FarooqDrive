@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'drive_controller.dart';
 import 'file_preview.dart';
 import 'diagnostics.dart';
+import 'app_storage.dart';
 import 'google_auth.dart';
 import 'models.dart';
 import 'native_file_icon.dart';
@@ -68,6 +69,7 @@ bool shouldShowDriveSidebar(double width, {required bool pinned}) =>
     width >= 1360 || pinned;
 
 void main() {
+  runZonedGuarded(() async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
@@ -77,8 +79,18 @@ void main() {
     writeDiagnostic('Unhandled platform error: $error', stack);
     return true;
   };
-  runZonedGuarded(
-    () => runApp(const FarooqDriveApp()),
+    try {
+      await initializeAppStorage();
+    } catch (error, stack) {
+      writeDiagnostic('Local storage startup failed: $error', stack);
+      runApp(const MaterialApp(home: Scaffold(body: Center(child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text('FarooqDrive could not open its local settings. Close the app and check available disk space and folder permissions, then try again.'),
+      )))));
+      return;
+    }
+    runApp(const FarooqDriveApp());
+  },
     (error, stack) => writeDiagnostic('Unhandled async error: $error', stack),
   );
 }
@@ -770,7 +782,7 @@ class _Sidebar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Version 21.1',
+                          'Version 21.2',
                           style: TextStyle(
                             color: Color(0xff9db5d1),
                             fontSize: 12,

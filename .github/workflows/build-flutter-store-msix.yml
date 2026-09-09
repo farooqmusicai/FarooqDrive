@@ -3,7 +3,7 @@ name: Build FarooqDrive Microsoft Store MSIX
 on:
   workflow_dispatch:
   push:
-    branches: [main, release/store-21-1-approved-20260908]
+    branches: [main, fix/store-startup-clean-uninstall-21-2]
     paths:
       - 'apps/flutter/**'
       - '.github/workflows/build-flutter-store-msix.yml'
@@ -19,6 +19,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.2'
           cache: true
       - name: Create Windows runner
         working-directory: apps/flutter
@@ -54,6 +55,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows release build failed.' }
           (-not [string]::IsNullOrWhiteSpace($env:GOOGLE_CLIENT_ID)).ToString() | Set-Content build/google-build-config-present.txt
           (Get-FileHash build/windows/x64/runner/Release/data/app.so -Algorithm SHA256).Hash | Set-Content build/app-before-msix.sha256
+      - name: Install installer compiler
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Build desktop installer with uninstall cleanup
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe" "/DAppVersion=21.2.0" "apps/flutter/installer/FarooqDrive.iss"
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop installer build failed.' }
+          New-Item -ItemType Directory -Force release-output | Out-Null
+          Copy-Item apps/flutter/release/FarooqDrive-Setup-v21.2.0-Windows-x64.exe release-output/
       - name: Create unsigned Store MSIX
         working-directory: apps/flutter
         run: dart run msix:create --store --build-windows false --sign-msix false --install-certificate false
@@ -118,6 +129,7 @@ jobs:
           $report | ConvertTo-Json
       - uses: actions/upload-artifact@v4
         with:
-          name: FarooqDrive-Microsoft-Store-v21.1.0.0-x64
+          name: FarooqDrive-Microsoft-Store-v21.2.0.0-x64
           path: release-output/*
           if-no-files-found: error
+

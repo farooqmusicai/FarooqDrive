@@ -2,13 +2,14 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'cloud_drive_api.dart';
+import 'app_storage_windows.dart';
 
 /// Each operation owns one OS-created unique directory. Never deletes siblings.
 class TransferSpool {
   TransferSpool._(this.directory, this.file);
   final Directory directory;
   final File file;
-  static String get cachePath => '${Directory.systemTemp.path}${Platform.pathSeparator}FarooqDrive-transfers';
+  static String get cachePath => '${AppStorage.cache}${Platform.pathSeparator}Transfers';
   static Future<TransferSpool> create() async {
     final root = await Directory(cachePath).create(recursive: true);
     final directory = await root.createTemp('job-');

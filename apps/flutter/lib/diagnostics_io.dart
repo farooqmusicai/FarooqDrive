@@ -1,11 +1,10 @@
 import 'dart:io';
+import 'app_storage_windows.dart';
 
 void writeDiagnostic(String message, StackTrace? stack) {
   try {
-    final localData = Platform.environment['LOCALAPPDATA'];
-    if (localData == null || localData.isEmpty) return;
     final directory = Directory(
-      '$localData${Platform.pathSeparator}FarooqDrive',
+      AppStorage.root,
     )..createSync(recursive: true);
     final log = File(
       '${directory.path}${Platform.pathSeparator}farooqdrive-crash.log',

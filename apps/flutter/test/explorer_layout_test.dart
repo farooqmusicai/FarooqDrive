@@ -80,7 +80,7 @@ void main() {
       colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark)),
       home: FileManagerPage(controller:c)));
     await tester.pump();
-    expect(find.text('Version 21.1'), findsOneWidget);
+    expect(find.text('Version 21.2'), findsOneWidget);
     expect(find.textContaining('Test'), findsNothing);
     await tester.tap(find.text('Name ↑'));
     await tester.pump();
